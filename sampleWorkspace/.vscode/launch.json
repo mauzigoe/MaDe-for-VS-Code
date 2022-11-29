@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "type": "matlabDebug",
+            "request": "launch",
+            "name": "Ask for file name",
+            "program": "${workspaceFolder}/${command:AskForProgramName}",
+            "stopOnEntry": true
+        }
+    ]
+}
