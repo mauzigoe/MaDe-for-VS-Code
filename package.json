@@ -1,0 +1,221 @@
+{
+  "name": "made-for-vs-code",
+  "displayName": "MaDe for VS Code",
+  "description": "Matlab Debugger for VS Code",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.71.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onDebug"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "breakpoints": [
+      {
+        "language": "matlab"
+      }
+    ],
+    "commands": [
+      {
+        "command": "extension.matlabDebug.debugEditorContents",
+        "title": "Debug File",
+        "category": "Matlab Debug",
+        "enablement": "!inDebugMode",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "extension.matlabDebug.runEditorContents",
+        "title": "Run File",
+        "category": "Matlab Debug",
+        "enablement": "!inDebugMode",
+        "icon": "$(play)"
+      },
+      {
+        "command": "extension.matlabDebug.toggleFormatting",
+        "title": "Toggle between decimal and hex formatting"
+      }
+    ],
+    "debuggers": [
+      {
+        "program": "./out/debugAdapter.js",
+        "type": "matlabDebug",
+        "languages": [
+          "matlab"
+        ],
+        "label": "Matlab Debug",
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Absolute path to a text file.",
+                "default": "${workspaceFolder}/${command:AskForProgramName}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Automatically stop after launch.",
+                "default": true
+              },
+              "trace": {
+                "type": "boolean",
+                "description": "Enable logging of the Debug Adapter Protocol.",
+                "default": true
+              },
+              "compileError": {
+                "type": "string",
+                "description": "Simulates a compile error in 'launch' request.",
+                "enum": [
+                  "default",
+                  "show",
+                  "hide"
+                ],
+                "enumDescriptions": [
+                  "default: show fake compile error to user",
+                  "show fake compile error to user",
+                  "do not show fake compile error to user"
+                ]
+              }
+            }
+          },
+          "attach": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Absolute path to a text file.",
+                "default": "${workspaceFolder}/${command:AskForProgramName}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Automatically stop after attach.",
+                "default": true
+              },
+              "trace": {
+                "type": "boolean",
+                "description": "Enable logging of the Debug Adapter Protocol.",
+                "default": true
+              },
+              "compileError": {
+                "type": "string",
+                "description": "Simulates a compile error in 'attach' request.",
+                "enum": [
+                  "default",
+                  "show",
+                  "hide"
+                ],
+                "enumDescriptions": [
+                  "default: show fake compile error to user",
+                  "show fake compile error to user",
+                  "do not show fake compile error to user"
+                ]
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "matlabDebug",
+            "request": "launch",
+            "name": "Ask for file name",
+            "program": "${workspaceFolder}/${command:AskForProgramName}",
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Matlab Debug: Launch",
+            "description": "A new configuration for 'debugging' a user selected matlab file.",
+            "body": {
+              "type": "matlabDebug",
+              "request": "launch",
+              "name": "Ask for file name",
+              "program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\"",
+              "stopOnEntry": true
+            }
+          }
+        ],
+        "variables": {
+          "AskForProgramName": "extension.matlabDebug.getProgramName"
+        }
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "extension.matlabDebug.runEditorContents",
+          "when": "resourceLangId == matlab",
+          "group": "navigation@1"
+        },
+        {
+          "command": "extension.matlabDebug.debugEditorContents",
+          "when": "resourceLangId == matlab",
+          "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "extension.matlabDebug.debugEditorContents",
+          "when": "resourceLangId == matlab"
+        },
+        {
+          "command": "extension.matlabDebug.runEditorContents",
+          "when": "resourceLangId == matlab"
+        }
+      ],
+      "debug/variables/context": [
+        {
+          "command": "extension.matlabDebug.toggleFormatting",
+          "when": "debugType == 'matlabDebug' && debugProtocolVariableMenuContext == 'simple'"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^7.2.0",
+    "@types/mocha": "^9.1.0",
+    "@types/node": "^18.11.0",
+    "@types/vscode": "^1.66.0",
+    "@typescript-eslint/eslint-plugin": "^5.17.0",
+    "@typescript-eslint/parser": "^5.17.0",
+    "@vscode/debugadapter": "^1.56.0",
+    "@vscode/debugadapter-testsupport": "^1.56.0",
+    "@vscode/debugprotocol": "^1.57.0",
+    "@vscode/test-electron": "2.1.5",
+    "@types/stack-lif": "^0.1.6",
+    "await-notify": "^1.0.1",
+    "base64-js": "^1.5.1",
+    "esbuild": "^0.14.29",
+    "eslint": "^8.12.0",
+    "events": "^3.3.0",
+    "glob": "^7.2.0",
+    "mocha": "^9.2.2",
+    "path-browserify": "^1.0.1",
+    "rimraf": "^3.0.2",
+    "timers-promises": "^1.0.1",
+    "typescript": "^4.6.3",
+    "url": "^0.11.0",
+    "vsce": "^2.7.0"
+  },
+  "dependencies": {
+    "peela": "^1.3.3",
+    "stack-lifo": "^0.1.6",
+    "timers-promises": "^1.0.1"
+  }
+}
