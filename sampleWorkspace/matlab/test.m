@@ -1,8 +1,4 @@
-x = linspace(0,10,1000)
-y = f(x)
+x = linspace(0,10,100)
+y = func(x)
 plot(x,y)
 
-
-function ret = f(z)
-    ret = z.^2
-end

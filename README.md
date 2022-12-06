@@ -1,59 +1,46 @@
-# made-for-vs-code README
+# Matlab Debugger for VS Code 
 
-This is the README for your extension "made-for-vs-code". After writing up a brief description, we recommend including the following sections.
+`MaDe`, Matlab Debugger for VS Code, is an Extension, which helps you to debug `matlab`-scripts in VS Code. 
+
+The Software is early development, but already has some basic functionailities (see Features).   
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+Currently following features are implemented:
 
-For example if there is an image subfolder under your extension project workspace:
+- Set and clear breakpoints in your `matlab`-script
+- run your `matlab`-script step-wise or run your script onto the next breakpoint or end
+- stack trace (only scriptwise rn)
+- evaluate variables at runtime ()
 
-\!\[feature X\]\(images/feature-x.png\)
+## Next Steps
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+The next feature to come would be:
+- improve the code and repo structe and add some explaination
+- improve the debugging features
+    - `step-in`
+    - improve `stack trace` (e.g. functionswise `stack trace`)
+    - `set variable`
+- add testing
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+The extension was tested on `Ubuntu 22.04` with following package version:
+
+- vscode 1.73.0
+- npm 8.19.2
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+Currently there are no extension settings.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+TBA
 
-## Release Notes
+Currently there is no (unit) testing. Since the one person project is at its start, issues are to be expected.
 
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+If you recieve any problems, feel free to open an issue.
 
 ## Working with Markdown
 
