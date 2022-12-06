@@ -198,7 +198,6 @@
     "@vscode/debugadapter-testsupport": "^1.56.0",
     "@vscode/debugprotocol": "^1.57.0",
     "@vscode/test-electron": "2.1.5",
-    "@types/stack-lif": "^0.1.6",
     "await-notify": "^1.0.1",
     "base64-js": "^1.5.1",
     "esbuild": "^0.14.29",
