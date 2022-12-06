@@ -1,9 +1,11 @@
 # Change Log
 
-All notable changes to the "made-for-vs-code" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
 ## [Unreleased]
 
 - Initial release
+- Functionalities:
+    - `step`
+    - `continue`
+    - `breakpoints`
+    - `stack trace`
+    - `evaluate`

@@ -1,22 +1,19 @@
-import {ResolveType, RejectType, regexPrompt, SetBreakpointResult, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode} from './madeInfo'
+import {ResolveType, RejectType, regexPrompt, SetBreakpointResult, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, regexEvaluateArray, regexEvaluateValue, regexCaptureColumns, regexCaptureValues, EvaluateValue, EvaluateResult, regexCaptureStatement, regexVarEqual, regexCaptureBeforePrompt} from './madeInfo'
 import './madeInfo'
 import { MatlabDebugSession } from './madeDebug'
 import { Stream } from 'stream'
 import { Breakpoint } from '@vscode/debugadapter'
 import { resolve } from 'path'
-import { rejects } from 'assert'
+import { match, rejects } from 'assert'
 
 export function stackTraceOnResolveHandler(stream: string) {
-    console.log("stackTraceOnResolve");
     let madeStack: MadeFrame[] = [];
     let matchAllStack = [...stream.toString().matchAll(regexDbStack)]
-    console.log(matchAllStack)
     matchAllStack.forEach((value: RegExpMatchArray, index: number)=>{
         madeStack = madeStack.concat([{ 
             path: value[1],
             line: parseInt(value[2])
         }])
-        console.log(madeStack)
     })
     madeStack = madeStack.reverse()
     if (madeStack.length == 0){
@@ -29,6 +26,24 @@ export function stackTraceOnResolveHandler(stream: string) {
 
 export function stackTraceOnRejectHandler(stream: string) {
     return []
+}
+export function evaluateOnResolveHandler(stream: string) {
+    let matchStream =  stream.match(regexCaptureBeforePrompt)
+    if (matchStream){
+        if (matchStream.length != 1) {
+            console.log(`matchStream.length != 1: value matchStream = ${matchStream}`)
+            return stream
+        }
+        return matchStream[0]
+    }
+    else {
+        return stream
+    }
+}
+
+export function evaluateOnRejectHandler(stream: string) {
+    let ret: EvaluateResult[] = [];
+    return ret
 }
 
 export function stackTraceStdOutHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): DefaultRejectType | DefaultResolveType | void {
@@ -55,7 +70,7 @@ export function defaultStdOutHandler(resolve: DefaultResolveType, reject: Defaul
 }
 
 export function defaultStdErrHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): RejectType<DefaultResult> | ResolveType<DefaultResult> | void {
-   reject(stream)
+    reject(stream)
 }
 
 export function readyForInput(line: string){

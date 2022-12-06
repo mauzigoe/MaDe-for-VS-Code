@@ -28,8 +28,8 @@ import {PassThrough} from 'stream';
 import { SrvRecord } from 'dns';
 import { Func } from 'mocha';
 import { isAnyArrayBuffer } from 'util/types';
-import { ResolveType, RejectType, regexPrompt, regexMatchBeforePrompt, regexEvaluateArray, regexEvaluateValue, clearBreakpointResult, SetBreakpointResult, ContinueResult, EvaluateResult, regexShellMode, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult } from './madeInfo';
-import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, readyForInput, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler'
+import { ResolveType, RejectType, regexPrompt, regexMatchBeforePrompt, regexEvaluateArray, regexEvaluateValue, clearBreakpointResult, SetBreakpointResult, ContinueResult, EvaluateResult, regexShellMode, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError } from './madeInfo';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnRejectHandler, evaluateOnResolveHandler, readyForInput, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler'
 import './madeInfo'
 import path = require('path');
 import { MatlabDebugSession } from './madeDebug';
@@ -75,14 +75,9 @@ export class MaDeProcess {
         //this._runtime = spawn(command, argList, options.runtimeOption );
         this._runtime = spawn(command, argList );
 
-        if(this._runtime.stdout){
-            console.log('stdout exist')
+        if(!(this._runtime.stdout && this._runtime.stderr && this._runtime.stdin)){
+            this.throwError(madeError.noStd);
         }
-        else{
-            console.log('stdout does not exist')
-        }
-
-        console.log(`regex.Prompt ${regexPrompt}`)
 
         this._debugger_stdout_passthrough = new PassThrough;
         this._debugger_stderr_passthrough = new PassThrough;
@@ -98,20 +93,16 @@ export class MaDeProcess {
         this._runtime_ready = this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, "").then(defaultOnResolveHandler,defaultOnRejectHandler);
 
         this._debugger_stdout_passthrough.addListener("data", (data: string) => {
-            console.log("debugger stdout")
-            console.log(`data: ${data}`)
             let _this = this
             
             data.toString().match(regexMatchBeforePrompt)?.forEach(
                 function (value) {
-                    console.log(`value: ${value}`)
                     _this.tryCallbackFromCmdStack(value, STD_OUT_ERR.STD_OUT);
                 }
             )
         })
 
         this._debugger_stderr_passthrough.addListener("data", (data: string) => {
-            console.log("debugger stderr")
             this.tryCallbackFromCmdStack(data, STD_OUT_ERR.STD_ERR);
         })
        
@@ -145,7 +136,6 @@ export class MaDeProcess {
     }
 
     public prepareDebugMode(srcPath: string): [Promise<boolean>,Promise<boolean>]{
-        console.log('prepareDebugMode')
         let writeCmd = `dbstop in ${path.basename(srcPath)} at 0\n` 
         let cdProm = this.cd(path.dirname(srcPath));
         let dbModeProm = this.registerFuncstruct(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler, defaultOnRejectHandler)
@@ -194,73 +184,27 @@ export class MaDeProcess {
             writeCmd = "dbcont\n";
         }
 
+        let prom: Promise<ContinueResult>;
         if (writeCmd)
-            return this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler); 
+            prom = this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler); 
         else 
             //this works given that the sourrounding registered function in a block are awaited  
-            return Promise.reject(false)
+            prom = Promise.reject(false)
+
+        return prom
     }
 
     /**
      * evaluate
      */
-    /*
-    public evaluate(varname: string) {
-        console.log("evaluate")
-
-        let _this = this;
-
-        let stdoutFunc = function (resolve: ResolveType<EvaluateResult>, reject: RejectType<EvaluateResult>, stream: string) {
-                if (readyForInput(stream)){
-
-                    if (regexEvaluateArray.test(stream)){
-                        let groups = [];
-                        for (const match of stream.matchAll(regexEvaluateArray)) {
-                            groups.push((match.groups?.dirtyvalue)?.replace("    ",",")); 
-                        }
-
-                        let array = groups?.join(",");
-                        console.log(`array=${array}`);
-
-                        if (array){
-                            return resolve([array,"array"])
-                        }
-                        else {
-                            reject(["",""])
-                        }
-                        
-                    }
-                    else if (regexEvaluateValue.test(stream)){
-                        for (const match of stream.matchAll(regexEvaluateValue)) {
-                            let array = (match.groups?.value)?.replace("    ",","); 
-                            if (array){
-                                return resolve([array,"array"])
-                            }
-                            else {
-                                reject(["",""])
-                            }
-                        }
-                    }
-                    else {
-                        reject(["",""])
-                    }
-
-                }
-            }
-
-        
-        let stderrFunc = function (resolve: ResolveType<EvaluateResult>, reject: RejectType<EvaluateResult>, stream: string) {
-            reject(["",""])
-        }
-
+    public evaluate(varname: string): Promise<EvaluateResult> {
         let writeCmd = `${varname}\n`
 
-        let prom = this.registerFuncstruct(stdoutFunc, stderrFunc, writeCmd);
+        let prom = this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(evaluateOnResolveHandler)
 
         return prom
 
     }
-    */
 
     public async stack(): Promise<StackResult> {
         let writeCmd = "dbstack\n" 
@@ -270,8 +214,6 @@ export class MaDeProcess {
 
     // optionsInfo needs to be porperly typed
     private registerFuncstruct(stdoutFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) => void , stderrFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) =>void, writeCmd: string, optionsInfo?: any): Promise<DefaultResult>{
-
-        console.log(`registerFuncStruct ${writeCmd}`)
 
         let funcstruct: FuncStruct<DefaultResult>; 
 
@@ -332,24 +274,17 @@ export class MaDeProcess {
 
     private tryCallbackFromCmdStack(stream: string , pipe: STD_OUT_ERR )  {
         
-        console.log("tryCallbackFromCmdStack");
-
         this._last_line = stream.toString().split('\n').at(-1) ?? ""
-        console.log(`stream ${stream}`)
-        console.log(`_last_line ${this._last_line}`)
-
+        
         if (this._runtime_cmdStack.length>0){
             let funcstruct: FuncStruct<any> = this._runtime_cmdStack[0];
             
             let proceed: boolean = false;
 
             if (pipe == STD_OUT_ERR.STD_OUT) {
-                console.log(`stdoutStream for writeCmd: ${this._runtime_cmdStack[0].writeCmd}:\n${stream}`);
-                console.log(`_runtime_cmdStack.length: ${this._runtime_cmdStack.length}`)
                 this._stdout_stream += stream;
                 funcstruct.stdEmmit.emit('dataout',this._stdout_stream);
             } else if (pipe == STD_OUT_ERR.STD_ERR) {
-                console.log(`stderrStream for writeCmd: ${this._runtime_cmdStack[0].writeCmd}:\n${stream}`);
                 this._stderr_stream += stream;
                 funcstruct.stdEmmit.emit('dataerr');
             }
@@ -378,10 +313,16 @@ export class MaDeProcess {
     }
 
     private sendEvent(reason: string, ...args: any[]){
-        console.log('sendEvent')
 		setTimeout(0).then(() => {
             this._dap_event.emit(reason, ...args)
         });
+    }
+
+    private throwError(reason: string): never{
+        throw new Error(reason);
+    }
+
+    private printInfo(){
     }
 
 }

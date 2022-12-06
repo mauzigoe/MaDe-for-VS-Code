@@ -96,8 +96,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	 */
 	protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): Promise<void> {
 
-		console.log("initializeRequest");
-
 		let ready = await this._madeprocess._runtime_ready.catch(() => {console.log("readiness not determinable"); return false})
 		// build and return the capabilities of this debug adapter:
 		response.body = response.body || {};
@@ -242,11 +240,9 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments, request?: DebugProtocol.Request): void {
-		console.log(`disconnectRequest suspend: ${args.suspendDebuggee}, terminate: ${args.terminateDebuggee}`);
 	}
 
 	protected async attachRequest(response: DebugProtocol.AttachResponse, args: IAttachRequestArguments) {
-		console.log("attachRequest")
 		return this.launchRequest(response, args);
 	}
 
@@ -260,11 +256,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 		setTimeout(()=>{},1000)
 
-		console.log("launchRequest")
-
 		let ready = await this._madeprocess._runtime_ready
-
-		console.log(`ready: ${ready}`)
 
 		if (!ready) {
 			// simulate a compile/build error in "launch" request:
@@ -278,14 +270,12 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			return 
 		} 
 
-		console.log("prepareDebugMode")
 		let [cdProm, dbModeProm] = this._madeprocess.prepareDebugMode(args.program)
 		await cdProm
 		await dbModeProm
 		await this._madeprocess.continue(args.program)
 		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID)
 		this.sendEvent(stop)
-		console.log("STOPPED EVENT")
 
 		this.sendResponse(response);
 	}
@@ -371,10 +361,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 
 	protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-		console.log("stackTrace")
-		let test = ((await this._madeprocess.stack().then((value:any)=>{console.log("stackTraceReady"); return value})).map((value: MadeFrame, index: number) => {
-			console.log(index)
-			console.log(value)
+		let test = ((await this._madeprocess.stack().then((value:any)=>{return value})).map((value: MadeFrame, index: number) => {
 			// rn, only the file currently debugged can be resolved by in the stack trace
 			if (`${value.path}.m` == path.basename(this._madeprocess._source_file)){
 				return new StackFrame(index,value.path, new Source(path.basename(this._madeprocess._source_file), this._madeprocess._source_file),value.line)
@@ -383,7 +370,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 				return new StackFrame(index,value.path,undefined,value.line)
 			}
 		}))
-		console.log(test)
 		response.body = {
 			stackFrames : test
 		};
@@ -430,9 +416,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	
 	protected async continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): Promise<void> {
 
-		console.log("continueRequest")
-
-		let continue_successful: boolean = await this._madeprocess.continue();
+		let continue_successful: boolean = await this._madeprocess.continue()//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
 
 		this.sendEvent(new StoppedEvent('breakpoint',MatlabDebugSession.threadID))
 
@@ -478,11 +462,31 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
-		this.sendResponse(response);
+
+		let isRejected: boolean = false; 
+
+		let result = await this._madeprocess.evaluate(args.expression).then((value) => {return value}, (value) =>{ isRejected = true; return value })
+
+		if (!isRejected) {
+			response.body = {
+				result: result,
+				variablesReference: 0
+			}
+			this.sendResponse(response);
+		}
+		else {
+			this.sendErrorResponse(response,1001);
+			return 
+		}
 	
 	}
+
 	private createSource(filePath: string): Source {
 		return new Source(path.basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mock-adapter-data');
+	}
+
+	private onRejectHandler(reason: string,  srcPath: string, line: number, column: number) {
+		this._madeprocess._dap_event.emit('output', 'err', reason, srcPath, line, column)
 	}
 }
 
