@@ -239,14 +239,17 @@ export class MaDeProcess {
 
         }).then(
             (value)=>{ 
-                console.log(`shift stack. length: ${this._runtime_cmdStack.length}`); 
+                console.debug(`shift stack. length: ${this._runtime_cmdStack.length}`); 
                 if (optionsInfo){
                     this.sendEvent('output','out', `command '${writeCmd}' finished`, this._source_file, optionsInfo.line, optionsInfo.column);
                 }
                 this._runtime_cmdStack.shift(); 
                 this._stdout_stream = ""
                 this._stderr_stream = "";
-                console.log(`shifted stack: ${this._runtime_cmdStack.length}`);
+                console.debug(`shifted stack: ${this._runtime_cmdStack.length}`);
+                if (this._runtime_cmdStack.length >= 1){
+                    console.debug(`nextCmd: ${this._runtime_cmdStack[0].writeCmd}`)
+                }
                 return value
             },
             (reason: any ) => {
@@ -293,7 +296,7 @@ export class MaDeProcess {
             }
         }
         else {
-            console.log("cmdStack empty")
+            console.debug("cmdStack empty")
         }
 
     }
