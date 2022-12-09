@@ -23,6 +23,10 @@ The next feature to come would be:
     - `set variable`
 - add testing
 
+## Getting Started
+
+If you open the repo with `VS code` you can just press `F5` to Debug the Extension and test `MaDe`. A `vsix`-file or publication to the store is going to come.
+
 ## Requirements
 
 The extension was tested on `Ubuntu 22.04` with following package version:
@@ -35,8 +39,6 @@ The extension was tested on `Ubuntu 22.04` with following package version:
 Currently there are no extension settings.
 
 ## Known Issues
-
-TBA
 
 Currently there is no (unit) testing. Since the one person project is at its start, issues are to be expected.
 
