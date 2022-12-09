@@ -27,7 +27,8 @@ import { threadId } from 'worker_threads';
 import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess'
 import * as fs from 'fs';
 import { DapEvent, MadeFrame, matlabDebugType, SetBreakpointResult } from './madeInfo';
-import path = require('path');
+import * as path from 'path';
+
 /**
  * This interface describes the mock-debug specific launch attributes
  * (which are not part of the Debug Adapter Protocol).
@@ -176,27 +177,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 		// make VS Code provide "Step in Target" functionality
 		response.body.supportsStepInTargetsRequest = false;
-		/*
-		// the adapter defines two exceptions filters, one with support for conditions.
-		response.body.supportsExceptionFilterOptions = true;
-		response.body.exceptionBreakpointFilters = [
-			{
-				filter: 'namedException',
-				label: "Named Exception",
-				description: `Break on named exceptions. Enter the exception's name as the Condition.`,
-				default: false,
-				supportsCondition: true,
-				conditionDescription: `Enter the exception's name`
-			},
-			{
-				filter: 'otherExceptions',
-				label: "Other Exceptions",
-				description: 'This is a other exception',
-				default: true,
-				supportsCondition: false
-			}
-		];
-		*/
 
 		// make VS Code send exceptionInfo request
 		response.body.supportsExceptionInfoRequest = true;
@@ -210,10 +190,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		response.body.supportsSingleThreadExecutionRequests = false;
 
 		// make VS Code send disassemble request
-		//response.body.supportsDisassembleRequest = false;
-		//response.body.supportsSteppingGranularity = false;
-		//response.body.supportsInstructionBreakpoints = false;
-
 		// make VS Code able to read and write variable memory
 		response.body.supportsReadMemoryRequest = false;
 		response.body.supportsWriteMemoryRequest = false;
@@ -252,9 +228,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
 		this._madeprocess.setSourceFile(args.program)
-		// wait 1 second until configuration has finished (and configurationDoneRequest has been called)
-
-		setTimeout(()=>{},1000)
 
 		let ready = await this._madeprocess._runtime_ready
 
@@ -273,6 +246,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		let [cdProm, dbModeProm] = this._madeprocess.prepareDebugMode(args.program)
 		await cdProm
 		await dbModeProm
+
 		await this._madeprocess.continue(args.program)
 		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID)
 		this.sendEvent(stop)
@@ -309,54 +283,11 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		
 		const actualBreakpoints = await Promise.all<DebugProtocol.Breakpoint>(actualBreakpoints0);
 
-		/*
-		let verifiedBreakpoints: number [] = [];
-		actualBreakpoints.filter((bp) => { return bp.verified === true }).map( function (bp: any, index, array): number {return bp.line})
-			.forEach( (line,index ) => {if ( !verifiedBreakpoints.includes(line)) {verifiedBreakpoints.push(line)} })
-
-		let unverifiedBreakpoints: number[] = [];
-		actualBreakpoints.filter((bp) => { return bp.verified === false}).map( function (bp: any, index, array): number {return bp.line})
-			.forEach( (line,index ) => {if ( !unverifiedBreakpoints.includes(line)) {unverifiedBreakpoints.push(line)} })
-
-		if (verifiedBreakpoints.length > 0) {
-			this._madeprocess._dap_event.emit('output','out',`verified breakpoint set in ${verifiedBreakpoints}`,this._madeprocess._source_file);
-		}
-		if (unverifiedBreakpoints.length > 0) {
-			this._madeprocess._dap_event.emit('output','out',`unverified breakpoint set in ${unverifiedBreakpoints}`,this._madeprocess._source_file);
-		}
-		*/
-
 		// send back the actual breakpoint positions
 		response.body = {
 			breakpoints: actualBreakpoints
 		};
 
-		this.sendResponse(response);
-	}
-
-	protected breakpointLocationsRequest(response: DebugProtocol.BreakpointLocationsResponse, args: DebugProtocol.BreakpointLocationsArguments, request?: DebugProtocol.Request): void {
-
-		this.sendResponse(response);
-	}
-	
-	protected async setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments): Promise<void> {
-
-		this.sendResponse(response);
-	}
-
-	protected exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments) {
-		/*	
-		response.body = {
-			exceptionId: 'Exception ID',
-			description: 'This is a descriptive description of the exception.',
-			breakMode: 'always',
-			details: {
-				message: 'Message contained in the exception.',
-				typeName: 'Short type name of the exception object',
-				stackTrace: 'stack frame 1\nstack frame 2',
-			}
-		};
-		*/
 		this.sendResponse(response);
 	}
 
@@ -388,31 +319,17 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
+	/* Soon to come
 	protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request): Promise<void> {
 		this.sendResponse(response);
 	}
+	*/
 
+	/* Also soon to come
 	protected setVariableRequest(response: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments): void {
-		/*
-		const container = this._variableHandles.get(args.variablesReference);
-		const rv = container === 'locals'
-			? this._runtime.getLocalVariable(args.name)
-			: container instanceof RuntimeVariable && container.value instanceof Array
-			? container.value.find(v => v.name === args.name)
-			: undefined;
-
-		if (rv) {
-			rv.value = this.convertToRuntime(args.value);
-			response.body = this.convertFromRuntime(rv);
-
-			if (rv.memory && rv.reference) {
-				this.sendEvent(new MemoryEvent(String(rv.reference), 0, rv.memory.length));
-			}
-		}
-		*/
-
 		this.sendResponse(response);
 	}
+	*/
 	
 	protected async continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): Promise<void> {
 
@@ -423,34 +340,13 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected reverseContinueRequest(response: DebugProtocol.ReverseContinueResponse, args: DebugProtocol.ReverseContinueArguments): void {
-		//this._runtime.continue(true);
-		this.sendResponse(response);
- 	}
-
 	protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): Promise<void> {
 		await this._madeprocess.next()
 		this.sendEvent(new StoppedEvent('step',MatlabDebugSession.threadID))
 		this.sendResponse(response);
 	}
 
-	protected stepBackRequest(response: DebugProtocol.StepBackResponse, args: DebugProtocol.StepBackArguments): void {
-		//this._runtime.step(args.granularity === 'instruction', true);
-		this.sendResponse(response);
-	}
-
-	protected stepInTargetsRequest(response: DebugProtocol.StepInTargetsResponse, args: DebugProtocol.StepInTargetsArguments) {
-		/*
-		const targets = this._runtime.getStepInTargets(args.frameId);
-		response.body = {
-			targets: targets.map(t => {
-				return { id: t.id, label: t.label };
-			})
-		};
-		*/
-		this.sendResponse(response);
-	}
-
+	/* Soon to come
 	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
 		//this._runtime.stepIn(args.targetId);
 		this.sendResponse(response);
@@ -460,6 +356,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		//this._runtime.stepOut();
 		this.sendResponse(response);
 	}
+	*/
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
 
@@ -485,9 +382,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		return new Source(path.basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mock-adapter-data');
 	}
 
-	private onRejectHandler(reason: string,  srcPath: string, line: number, column: number) {
-		this._madeprocess._dap_event.emit('output', 'err', reason, srcPath, line, column)
-	}
 }
 
 		

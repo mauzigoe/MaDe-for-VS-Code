@@ -31,7 +31,7 @@ import { isAnyArrayBuffer } from 'util/types';
 import { ResolveType, RejectType, regexPrompt, regexMatchBeforePrompt, regexEvaluateArray, regexEvaluateValue, clearBreakpointResult, SetBreakpointResult, ContinueResult, EvaluateResult, regexShellMode, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError } from './madeInfo';
 import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnRejectHandler, evaluateOnResolveHandler, readyForInput, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler'
 import './madeInfo'
-import path = require('path');
+import * as path from 'path';
 import { MatlabDebugSession } from './madeDebug';
 
 export interface MatlabDebugProcessOptions {
@@ -239,21 +239,13 @@ export class MaDeProcess {
 
         }).then(
             (value)=>{ 
-                console.debug(`shift stack. length: ${this._runtime_cmdStack.length}`); 
-                if (optionsInfo){
-                    this.sendEvent('output','out', `command '${writeCmd}' finished`, this._source_file, optionsInfo.line, optionsInfo.column);
-                }
-                this._runtime_cmdStack.shift(); 
-                this._stdout_stream = ""
-                this._stderr_stream = "";
-                console.debug(`shifted stack: ${this._runtime_cmdStack.length}`);
-                if (this._runtime_cmdStack.length >= 1){
-                    console.debug(`nextCmd: ${this._runtime_cmdStack[0].writeCmd}`)
-                }
+                console.debug(`writeCmd ${funcstruct.writeCmd} resolved`);
+                this.cleanElementOnStack()
                 return value
             },
             (reason: any ) => {
-                this.sendEvent( 'output', 'err', `command '${writeCmd}' failed`,this._source_file, optionsInfo.line, optionsInfo.column);
+                console.debug(`writeCmd ${funcstruct.writeCmd} rejected`);
+                this.cleanElementOnStack()
                 return reason 
             }
         )
@@ -301,16 +293,6 @@ export class MaDeProcess {
 
     }
 
-    private stdoutFuncDefault(resolve: ResolveType<ContinueResult>, reject: RejectType<ContinueResult>, stream: string) {
-        if (readyForInput(stream)) {
-            resolve(true)
-        }
-    }
-
-    private stderrFuncDefault(resolve: ResolveType<ContinueResult>, reject: RejectType<ContinueResult>, stream: string) {
-        reject(false)
-    }
-
     private isInDebugMode(){
         return regexDebugMode.test(this._last_line)
     }
@@ -326,6 +308,17 @@ export class MaDeProcess {
     }
 
     private printInfo(){
+    }
+
+    private cleanElementOnStack(){
+        console.debug(`shift stack. length: ${this._runtime_cmdStack.length}`); 
+        this._runtime_cmdStack.shift(); 
+        this._stdout_stream = ""
+        this._stderr_stream = "";
+        console.debug(`shifted stack: ${this._runtime_cmdStack.length}`);
+        if (this._runtime_cmdStack.length >= 1){
+            console.debug(`nextCmd: ${this._runtime_cmdStack[0].writeCmd}`)
+        }
     }
 
 }
