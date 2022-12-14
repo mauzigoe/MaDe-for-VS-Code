@@ -1,5 +1,4 @@
 import * as vscode from 'vscode'
-import EventEmitter = require('events');
 import { OutputChannel } from 'vscode';
 import { StdioPipe } from 'child_process';
 import { Breakpoint } from '@vscode/debugadapter';
@@ -39,6 +38,7 @@ export type EvaluateResult = {
 export type MadeFrame = {
     path: string,
     line: number,
+    localFunc?: string
 }
 export type StackResult = MadeFrame[];
 
@@ -47,9 +47,10 @@ export const regexDebugMode = /K>> /;
 export const regexPrompt = RegExp(`\\n?^(${regexShellMode.source}|${regexDebugMode.source})`,'m');
 export const regexCaptureBeforePrompt = RegExp(`.+?(?=${regexPrompt.source})`,'gs')
 export const regexMatchBeforePrompt = RegExp(`(?!>(${regexDebugMode.source}|${regexShellMode.source}))(?=.+)(?:.|\n)*?(${regexShellMode.source}|${regexDebugMode.source}|$)`,'g');
+export const regexMatchBeforePromptWithoutGlobal = RegExp(`(?!>(${regexDebugMode.source}|${regexShellMode.source}))(?=.+)(?:.|\n)*?(${regexShellMode.source}|${regexDebugMode.source}|$)`,'g');
 
 // for now dont capture functions in script file
-export const regexDbStack = /In (.+?)(?:>.+?)* \(line (\d+)\)/g
+export const regexDbStack = /In (?<path>.+?)(?:>(?<localFunc>.+?))* \(line (?<line>\d+)\)/g
 
 export const regexBreakpointStatus = /Breakpoint for ([a-zA-Z0-9\._-]+) is on line ([\d,]+)/;
 export const regexStringIdicator = /"|'/;
