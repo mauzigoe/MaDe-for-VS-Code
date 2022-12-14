@@ -1,10 +1,12 @@
 {
 	"compilerOptions": {
-		"module": "commonjs",
-		"target": "ES2020",
+		"allowSyntheticDefaultImports": true,
+		"module": "ES2022",
+		"moduleResolution": "node",
+		"target": "ES2022",
 		"outDir": "out",
 		"lib": [
-			"ES2020"
+			"ES2022"
 		],
 		"sourceMap": true,
 		"rootDir": "src",
@@ -13,5 +15,6 @@
 		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
 		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
 		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
-	}
+	},
+	"exclude": ["node_modules"]
 }

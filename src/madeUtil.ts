@@ -1,4 +1,4 @@
-import path = require("path");
+import * as path from 'path';
 import { runtimeType } from "./madeInfo";
 
 export function verifyBreakpoints(_runtime : runtimeType, path: string, line: number){

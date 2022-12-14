@@ -66,9 +66,6 @@ export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vs
 		factory = new InlineDebugAdapterFactory();
 	}
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory(matlabDebugType, factory));
-	if ('dispose' in factory) {
-		context.subscriptions.push(factory);
-	}
 
 	// override VS Code's default implementation of the debug hover
 	// here we match only Mock "variables", that are words starting with an '$'
