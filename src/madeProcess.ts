@@ -147,7 +147,7 @@ export class MaDeProcess {
      */
     public setBreakpoints(path: string, line: number): Promise<SetBreakpointsResult> {
 
-        let writeCmd = `dbstop in ${path} at ${line}\n` 
+        let writeCmd = `dbstop in ${path} at ${line}\n`;
 
         return this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler, defaultOnRejectHandler)
             .then(
@@ -158,10 +158,10 @@ export class MaDeProcess {
 
     public async next(): Promise<NextResult> {
 
-        let writeCmd = "dbstep\n"
+        let writeCmd = "dbstep\n";
 
         return this.registerFuncstruct(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
-            .then((value: any) => {this.sendEvent('stopOnStep');return defaultOnResolveHandler(value)},defaultOnRejectHandler)
+            .then((value: any) => {this.sendEvent('stopOnStep');return defaultOnResolveHandler(value)},defaultOnRejectHandler);
 
     }
 

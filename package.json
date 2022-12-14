@@ -2,6 +2,10 @@
   "name": "made-for-vs-code",
   "displayName": "MaDe for VS Code",
   "description": "Matlab Debugger for VS Code",
+  "repository": {
+    "type": "git",
+    "url": "github:mauzigoe/MaDe-for-VS-Code"
+  },
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.71.0"
