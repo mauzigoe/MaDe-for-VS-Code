@@ -294,12 +294,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
 		let test = ((await this._madeprocess.stack().then((value:any)=>{return value})).map((value: MadeFrame, index: number) => {
 			// rn, only the file currently debugged can be resolved by in the stack trace
-			if (`${value.path}.m` == path.basename(this._madeprocess._source_file)){
-				return new StackFrame(index,value.path, new Source(path.basename(this._madeprocess._source_file), this._madeprocess._source_file),value.line)
-			}
-			else {
-				return new StackFrame(index,value.path,undefined,value.line)
-			}
+			return new StackFrame(index,value.path, new Source(path.basename(value.path), value.path),value.line)
 		}))
 		response.body = {
 			stackFrames : test

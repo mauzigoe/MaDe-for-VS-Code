@@ -10,12 +10,25 @@ export function stackTraceOnResolveHandler(stream: string) {
     let madeStack: MadeFrame[] = [];
     let matchAllStack = [...stream.toString().matchAll(regexDbStack)]
     matchAllStack.forEach((value: RegExpMatchArray, index: number)=>{
-        madeStack = madeStack.concat([{ 
-            path: value[1],
-            line: parseInt(value[2])
-        }])
+        if (value.length == 4){
+            madeStack = madeStack.concat([{ 
+                path: value[1],
+                line: parseInt(value[3]),
+                localFunc: value[2]
+            }])
+        }
+        else if (value.length == 3 ){
+            madeStack = madeStack.concat([{ 
+                path: value[1],
+                line: parseInt(value[2])
+            }])
+        }
+        else 
+        {
+            console.log("matched line `dbstack` without name capturing anything")
+            console.log(`${value.groups}`)
+        }
     })
-    madeStack = madeStack.reverse()
     if (madeStack.length == 0){
         return []
     }

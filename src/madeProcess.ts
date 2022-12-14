@@ -28,11 +28,10 @@ import {PassThrough} from 'stream';
 import { SrvRecord } from 'dns';
 import { Func } from 'mocha';
 import { isAnyArrayBuffer } from 'util/types';
-import { ResolveType, RejectType, regexPrompt, regexMatchBeforePrompt, regexEvaluateArray, regexEvaluateValue, clearBreakpointResult, SetBreakpointResult, ContinueResult, EvaluateResult, regexShellMode, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError } from './madeInfo';
+import { ResolveType, RejectType, regexPrompt, regexMatchBeforePrompt, regexEvaluateArray, regexEvaluateValue, clearBreakpointResult, SetBreakpointResult, ContinueResult, EvaluateResult, regexShellMode, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
 import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnRejectHandler, evaluateOnResolveHandler, readyForInput, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler'
 import './madeInfo'
 import * as path from 'path';
-import { MatlabDebugSession } from './madeDebug';
 
 export interface MatlabDebugProcessOptions {
     runtimeOption: { stdio: [StdioPipe,StdioPipe,StdioPipe] },
@@ -95,7 +94,7 @@ export class MaDeProcess {
         this._debugger_stdout_passthrough.addListener("data", (data: string) => {
             let _this = this
             
-            data.toString().match(regexMatchBeforePrompt)?.forEach(
+            data.toString().match(regexMatchBeforePromptWithoutGlobal)?.forEach(
                 function (value) {
                     _this.tryCallbackFromCmdStack(value, STD_OUT_ERR.STD_OUT);
                 }
@@ -153,7 +152,7 @@ export class MaDeProcess {
         return this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler, defaultOnRejectHandler)
             .then(
                 (value)  => { return [value, line, this._bp_id++]}, 
-                (reason) => { return [false, line, this._bp_id++] }
+                (reason) => { return [false, line, this._bp_id++]}
             );
     }   
 
@@ -207,13 +206,16 @@ export class MaDeProcess {
     }
 
     public async stack(): Promise<StackResult> {
-        let writeCmd = "dbstack\n" 
+        let writeCmd = "dbstack('-completenames')\n" 
         
         return this.registerFuncstruct(stackTraceStdOutHandler,defaultStdErrHandler,writeCmd).then(stackTraceOnResolveHandler,stackTraceOnRejectHandler);
     }
 
     // optionsInfo needs to be porperly typed
-    private registerFuncstruct(stdoutFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) => void , stderrFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) =>void, writeCmd: string, optionsInfo?: any): Promise<DefaultResult>{
+    private registerFuncstruct(
+        stdoutFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) => void,
+        stderrFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) =>void,
+        writeCmd: string, optionsInfo?: any): Promise<DefaultResult>{
 
         let funcstruct: FuncStruct<DefaultResult>; 
 
@@ -225,12 +227,14 @@ export class MaDeProcess {
             let _resolve = (x:any) => {
                 stdEmmit.removeAllListeners('dataout');
                 errEmmit.removeAllListeners('dataerr');
+                this.cleanElementOnStack()
                 resolve(x)
             }
 
             let _reject = (x:any) => {
                 stdEmmit.removeAllListeners('dataout');
                 errEmmit.removeAllListeners('dataerr');
+                this.cleanElementOnStack()
                 reject(x)
             }
 
@@ -239,14 +243,16 @@ export class MaDeProcess {
 
         }).then(
             (value)=>{ 
-                console.debug(`writeCmd ${funcstruct.writeCmd} resolved`);
-                this.cleanElementOnStack()
+                console.log(`writeCmd ${funcstruct.writeCmd} resolved`);
                 return value
             },
             (reason: any ) => {
-                console.debug(`writeCmd ${funcstruct.writeCmd} rejected`);
-                this.cleanElementOnStack()
+                console.log(`writeCmd ${funcstruct.writeCmd} rejected`);
                 return reason 
+            }
+        ).catch(
+            (reason: any) => {
+                console.log(`writeCmd ${funcstruct.writeCmd} catched`);
             }
         )
 
@@ -268,7 +274,6 @@ export class MaDeProcess {
         }
 
     private tryCallbackFromCmdStack(stream: string , pipe: STD_OUT_ERR )  {
-        
         this._last_line = stream.toString().split('\n').at(-1) ?? ""
         
         if (this._runtime_cmdStack.length>0){
@@ -288,13 +293,9 @@ export class MaDeProcess {
             }
         }
         else {
-            console.debug("cmdStack empty")
+            console.error("cmdStack empty")
         }
 
-    }
-
-    private isInDebugMode(){
-        return regexDebugMode.test(this._last_line)
     }
 
     private sendEvent(reason: string, ...args: any[]){
@@ -307,17 +308,14 @@ export class MaDeProcess {
         throw new Error(reason);
     }
 
-    private printInfo(){
-    }
-
     private cleanElementOnStack(){
-        console.debug(`shift stack. length: ${this._runtime_cmdStack.length}`); 
+        console.log(`cleanElementOnStack`)
         this._runtime_cmdStack.shift(); 
-        this._stdout_stream = ""
-        this._stderr_stream = "";
-        console.debug(`shifted stack: ${this._runtime_cmdStack.length}`);
+        this._stdout_stream = this._stdout_stream.toString().replace(regexMatchBeforePromptWithoutGlobal,""); 
+        this._stderr_stream = this._stdout_stream.toString().replace(regexMatchBeforePromptWithoutGlobal,""); 
+        console.log(`new stack length: ${this._runtime_cmdStack.length}`);
         if (this._runtime_cmdStack.length >= 1){
-            console.debug(`nextCmd: ${this._runtime_cmdStack[0].writeCmd}`)
+            console.log(`nextCmd: ${this._runtime_cmdStack[0].writeCmd}`)
         }
     }
 
