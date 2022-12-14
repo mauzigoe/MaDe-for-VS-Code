@@ -2,7 +2,7 @@
 
 import * as vscode from 'vscode';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
-import {matlabType, matlabDebugType} from './madeInfo'
+import {matlabType, matlabDebugType} from './madeInfo';
 import { MatlabDebugSession } from './madeDebug';
 
 let outChannel = vscode.window.createOutputChannel('Matlab');

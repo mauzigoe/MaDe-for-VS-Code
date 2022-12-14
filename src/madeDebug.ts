@@ -24,9 +24,9 @@ import { read } from 'fs';
 import { setFlagsFromString } from 'v8';
 import { ConfigurationTarget, DebugProtocolBreakpoint, EnvironmentVariableMutatorType, OutputChannel, TreeItem } from 'vscode';
 import { threadId } from 'worker_threads';
-import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess'
+import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
 import * as fs from 'fs';
-import { DapEvent, MadeFrame, matlabDebugType, SetBreakpointResult } from './madeInfo';
+import { dapEvent, MadeFrame, matlabDebugType, SetBreakpointResult } from './madeInfo';
 import * as path from 'path';
 
 /**
@@ -84,7 +84,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 				stdio: [ 'pipe', 'pipe', 'pipe']
 			},
 			outputChannel: this.outputChannel
-		}
+		};
 
 		this._madeprocess = new MaDeProcess(command, argList, options);
 
@@ -97,7 +97,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	 */
 	protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): Promise<void> {
 
-		let ready = await this._madeprocess._runtime_ready.catch(() => {console.log("readiness not determinable"); return false})
+		let ready = await this._madeprocess.runtimeReady.catch(() => {console.log("readiness not determinable"); return false;});
 		// build and return the capabilities of this debug adapter:
 		response.body = response.body || {};
 
@@ -105,30 +105,30 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			response.success = false;	
 		}
 
-		await this._madeprocess.initializeOnlyShell()
+		await this._madeprocess.initializeOnlyShell();
 		
-		this._madeprocess._dap_event.on('stopOnBreakpoint',() => {
+		this._madeprocess.dapEvent.on('stopOnBreakpoint',() => {
 			this.sendEvent(new StoppedEvent('breakpoint', MatlabDebugSession.threadID));
-		})
+		});
 
-		this._madeprocess._dap_event.on('stopOnDataBreakpoint', () => {
-			this.sendEvent(new StoppedEvent('data breakpoint'))
-		})
+		this._madeprocess.dapEvent.on('stopOnDataBreakpoint', () => {
+			this.sendEvent(new StoppedEvent('data breakpoint'));
+		});
 
-		this._madeprocess._dap_event.on('stopOnInstructionBreakpoint', () => {
-			this.sendEvent(new StoppedEvent('instruction breakpoint', MatlabDebugSession.threadID))
-		})
+		this._madeprocess.dapEvent.on('stopOnInstructionBreakpoint', () => {
+			this.sendEvent(new StoppedEvent('instruction breakpoint', MatlabDebugSession.threadID));
+		});
 
-		this._madeprocess._dap_event.on('stopOnStep', () => {
-			this.sendEvent(new StoppedEvent('step', MatlabDebugSession.threadID))
-		})
+		this._madeprocess.dapEvent.on('stopOnStep', () => {
+			this.sendEvent(new StoppedEvent('step', MatlabDebugSession.threadID));
+		});
 
-		this._madeprocess._dap_event.on('breakpointValidated', (verified,id) => {
-			this.sendEvent(new BreakpointEvent('changed', { verified: verified, id: id}  as DebugProtocol.Breakpoint) )
-		})
+		this._madeprocess.dapEvent.on('breakpointValidated', (verified,id) => {
+			this.sendEvent(new BreakpointEvent('changed', { verified: verified, id: id}  as DebugProtocol.Breakpoint) );
+		});
 
 
-		this._madeprocess._dap_event.on('output', (type: any, text: any, filePath: any, line: any, column: any) => {
+		this._madeprocess.dapEvent.on('output', (type: any, text: any, filePath: any, line: any, column: any) => {
 
 			let category: string;
 			switch(type) {
@@ -149,7 +149,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			e.body.column = this.convertDebuggerColumnToClient(column);
 			this.sendEvent(e);
 		});
-		this._madeprocess._dap_event.on('end', () => {
+		this._madeprocess.dapEvent.on('end', () => {
 			this.sendEvent(new TerminatedEvent());
 		});
 	
@@ -227,9 +227,9 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
 		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
-		this._madeprocess.setSourceFile(args.program)
+		this._madeprocess.setSourceFile(args.program);
 
-		let ready = await this._madeprocess._runtime_ready
+		let ready = await this._madeprocess.runtimeReady;
 
 		if (!ready) {
 			// simulate a compile/build error in "launch" request:
@@ -240,16 +240,16 @@ export class MatlabDebugSession extends LoggingDebugSession {
 				format: `compile error: some fake error.`,
 				showUser: args.compileError === 'show' ? true : (args.compileError === 'hide' ? false : undefined)
 			});
-			return 
+			return;
 		} 
 
-		let [cdProm, dbModeProm] = this._madeprocess.prepareDebugMode(args.program)
-		await cdProm
-		await dbModeProm
+		let [cdProm, dbModeProm] = this._madeprocess.prepareDebugMode(args.program);
+		await cdProm;
+		await dbModeProm;
 
-		await this._madeprocess.continue(args.program)
-		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID)
-		this.sendEvent(stop)
+		await this._madeprocess.continue(args.program);
+		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID);
+		this.sendEvent(stop);
 
 		this.sendResponse(response);
 	}
@@ -268,8 +268,8 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		const clientLines = args.lines || [];
 		await this._madeprocess.clearBreakpoints(args.source.path).then(
 			() => {},
-			() => {console.error(`${arguments.callee.name}: clearBreakpoints(${args.source.path}) failed`)}
-		)
+			() => {console.error(`${arguments.callee.name}: clearBreakpoints(${args.source.path}) failed`);}
+		);
 
 		// set and verify breakpoint locations
 
@@ -292,16 +292,16 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 
 	protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-		let test = ((await this._madeprocess.stack().then((value:any)=>{return value})).map((value: MadeFrame, index: number) => {
+		let test = ((await this._madeprocess.stack().then((value:any)=>{return value;})).map((value: MadeFrame, index: number) => {
 			// rn, only the file currently debugged can be resolved by in the stack trace
-			return new StackFrame(index,value.path, new Source(path.basename(value.path), value.path),value.line)
-		}))
+			return new StackFrame(index,value.path, new Source(path.basename(value.path), value.path),value.line);
+		}));
 		response.body = {
 			stackFrames : test
 		};
 
 		
-		this.sendResponse(response)
+		this.sendResponse(response);
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
@@ -328,16 +328,16 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	
 	protected async continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): Promise<void> {
 
-		let continue_successful: boolean = await this._madeprocess.continue()//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
+		this._madeprocess.continue();//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
 
-		this.sendEvent(new StoppedEvent('breakpoint',MatlabDebugSession.threadID))
+		this.sendEvent(new StoppedEvent('breakpoint',MatlabDebugSession.threadID));
 
 		this.sendResponse(response);
 	}
 
 	protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): Promise<void> {
-		await this._madeprocess.next()
-		this.sendEvent(new StoppedEvent('step',MatlabDebugSession.threadID))
+		await this._madeprocess.next();
+		this.sendEvent(new StoppedEvent('step',MatlabDebugSession.threadID));
 		this.sendResponse(response);
 	}
 
@@ -357,18 +357,18 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 		let isRejected: boolean = false; 
 
-		let result = await this._madeprocess.evaluate(args.expression).then((value) => {return value}, (value) =>{ isRejected = true; return value })
+		let result = await this._madeprocess.evaluate(args.expression).then((value) => {return value;}, (value) =>{ isRejected = true; return value; });
 
 		if (!isRejected) {
 			response.body = {
 				result: result,
 				variablesReference: 0
-			}
+			};
 			this.sendResponse(response);
 		}
 		else {
 			this.sendErrorResponse(response,1001);
-			return 
+			return ;
 		}
 	
 	}
