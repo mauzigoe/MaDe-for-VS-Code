@@ -2,12 +2,10 @@
 
 import * as vscode from 'vscode';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
-import {matlabType, matlabDebugType} from './madeInfo';
+import {matlabDebugType} from './madeInfo';
 import { MatlabDebugSession } from './madeDebug';
 
 export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
-    console.log("activateMadeDebug");
-	// register a configuration provider for 'matlab' debug type
 		
 	context.subscriptions.push(
 		vscode.commands.registerCommand('extension.matlabDebug.runEditorContents', (resource: vscode.Uri) => {
@@ -82,7 +80,7 @@ class MadeConfigurationProvider implements vscode.DebugConfigurationProvider {
 
 		if (!config.type && !config.request && !config.name) {
 			const editor = vscode.window.activeTextEditor;
-			if (editor && editor.document.languageId === matlabType) {
+			if (editor) {
 				config.type = matlabDebugType;
 				config.name = 'Launch';
 				config.request = 'launch';

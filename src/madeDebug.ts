@@ -17,7 +17,6 @@ import {
 	Thread, StackFrame, Source, Breakpoint,
 } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { OutputChannel } from 'vscode';
 import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
 import { MadeFrame} from './madeInfo';
 import * as path from 'path';
@@ -51,24 +50,18 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	// a Mock runtime (or debugger)
 	private _madeprocess: MaDeProcess;
 	// matlab output channel
-	private outputChannel?: OutputChannel;
-
 	//private _configurationDone = new Subject();
 
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
 	 */
-	public constructor(outputChannel?: OutputChannel) {
-		super("made-debug.txt");
+	public constructor() {
+		super("made-debug.txt", true);
 
 		// this debugger uses zero-based lines and columns
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
-
-		if (outputChannel){
-			this.outputChannel = outputChannel;
-		}
 
 		let command = '/usr/bin/env';
 		let argList = ['matlab', '-nosplash', '-nodesktop', '-singleCompThread'];
@@ -76,7 +69,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			runtimeOption: {
 				stdio: [ 'pipe', 'pipe', 'pipe']
 			},
-			outputChannel: this.outputChannel
 		};
 
 		this._madeprocess = new MaDeProcess(command, argList, options);

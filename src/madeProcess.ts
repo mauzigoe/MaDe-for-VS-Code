@@ -1,7 +1,6 @@
 import { ChildProcess, spawn, StdioPipe } from 'child_process';
 import { EventEmitter} from 'stream';
 import { setTimeout } from 'timers/promises';
-import { OutputChannel} from 'vscode';
 import './madeInfo';
 import {PassThrough} from 'stream';
 import { ResolveType, RejectType, ContinueResult, EvaluateResult, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
@@ -11,7 +10,6 @@ import * as path from 'path';
 
 export interface MatlabDebugProcessOptions {
     runtimeOption: { stdio: [StdioPipe,StdioPipe,StdioPipe] },
-    outputChannel?: OutputChannel 
 }
 
 enum StdOutErr { stdOut, stdErr };
@@ -46,7 +44,6 @@ export class MaDeProcess {
     dapEvent = new EventEmitter();
     constructor(command: string, argList: string[], options: MatlabDebugProcessOptions) {
 
-        //this._runtime = spawn(command, argList, options.runtimeOption );
         this._runtime = spawn(command, argList );
 
         if(!(this._runtime.stdout && this._runtime.stderr && this._runtime.stdin)){
