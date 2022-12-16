@@ -1,79 +1,74 @@
-import {ResolveType, RejectType, regexPrompt, SetBreakpointResult, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, regexEvaluateArray, regexEvaluateValue, regexCaptureColumns, regexCaptureValues, EvaluateValue, EvaluateResult, regexCaptureStatement, regexVarEqual, regexCaptureBeforePrompt} from './madeInfo'
-import './madeInfo'
-import { MatlabDebugSession } from './madeDebug'
-import { Stream } from 'stream'
-import { Breakpoint } from '@vscode/debugadapter'
-import { resolve } from 'path'
-import { match, rejects } from 'assert'
+import {ResolveType, RejectType, regexPrompt, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, EvaluateResult, regexCaptureBeforePrompt} from './madeInfo';
+import './madeInfo';
 
 export function stackTraceOnResolveHandler(stream: string) {
     let madeStack: MadeFrame[] = [];
-    let matchAllStack = [...stream.toString().matchAll(regexDbStack)]
+    let matchAllStack = [...stream.toString().matchAll(regexDbStack)];
     matchAllStack.forEach((value: RegExpMatchArray, index: number)=>{
-        if (value.length == 4){
+        if (value.length === 4){
             madeStack = madeStack.concat([{ 
                 path: value[1],
                 line: parseInt(value[3]),
                 localFunc: value[2]
-            }])
+            }]);
         }
-        else if (value.length == 3 ){
+        else if (value.length === 3 ){
             madeStack = madeStack.concat([{ 
                 path: value[1],
                 line: parseInt(value[2])
-            }])
+            }]);
         }
         else 
         {
-            console.log("matched line `dbstack` without name capturing anything")
-            console.log(`${value.groups}`)
+            console.log("matched line `dbstack` without name capturing anything");
+            console.log(`${value.groups}`);
         }
-    })
-    if (madeStack.length == 0){
-        return []
+    });
+    if (madeStack.length === 0){
+        return [];
     }
     else {
-        return madeStack
+        return madeStack;
     }
 }
 
 export function stackTraceOnRejectHandler(stream: string) {
-    return []
+    return [];
 }
 export function evaluateOnResolveHandler(stream: string) {
-    let matchStream =  stream.match(regexCaptureBeforePrompt)
+    let matchStream =  stream.match(regexCaptureBeforePrompt);
     if (matchStream){
-        if (matchStream.length != 1) {
-            console.log(`matchStream.length != 1: value matchStream = ${matchStream}`)
-            return stream
+        if (matchStream.length !== 1) {
+            console.log(`matchStream.length != 1: value matchStream = ${matchStream}`);
+            return stream;
         }
-        return matchStream[0]
+        return matchStream[0];
     }
     else {
-        return stream
+        return stream;
     }
 }
 
 export function evaluateOnRejectHandler(stream: string) {
     let ret: EvaluateResult[] = [];
-    return ret
+    return ret;
 }
 
 export function stackTraceStdOutHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): DefaultRejectType | DefaultResolveType | void {
     if( readyForInputDebugMode(stream)) {
-        resolve(stream)
+        resolve(stream);
     }
     else if (readyForInputShellMode(stream)){
-        reject(stream)
+        reject(stream);
     }
 }
 
 export function defaultOnResolveHandler(value: any) {
-   return true 
+   return true ;
 }
 
 export function defaultOnRejectHandler(value: any) {
-    return false
+    return false;
 }
 
 export function defaultStdOutHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): RejectType<DefaultResult> | ResolveType<DefaultResult> | void {
@@ -83,17 +78,17 @@ export function defaultStdOutHandler(resolve: DefaultResolveType, reject: Defaul
 }
 
 export function defaultStdErrHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): RejectType<DefaultResult> | ResolveType<DefaultResult> | void {
-    reject(stream)
+    reject(stream);
 }
 
 export function readyForInput(line: string){
-    return regexPrompt.test(line)
+    return regexPrompt.test(line);
 }
 
 export function readyForInputDebugMode(line: string){
-    return regexDebugMode.test(line)
+    return regexDebugMode.test(line);
 }
 
 export function readyForInputShellMode(line: string){
-    return regexShellMode.test(line)
+    return regexShellMode.test(line);
 }

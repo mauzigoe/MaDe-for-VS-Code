@@ -2,16 +2,11 @@
 
 import * as vscode from 'vscode';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
-import {matlabType, matlabDebugType} from './madeInfo'
+import {matlabDebugType} from './madeInfo';
 import { MatlabDebugSession } from './madeDebug';
 
-let outChannel = vscode.window.createOutputChannel('Matlab');
-
 export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
-    console.log("activateMadeDebug");
-	// register a configuration provider for 'matlab' debug type
-	outChannel = vscode.window.createOutputChannel("Matlab Output Channel");
-	
+		
 	context.subscriptions.push(
 		vscode.commands.registerCommand('extension.matlabDebug.runEditorContents', (resource: vscode.Uri) => {
 			let targetResource = resource;
@@ -66,9 +61,6 @@ export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vs
 		factory = new InlineDebugAdapterFactory();
 	}
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory(matlabDebugType, factory));
-	if ('dispose' in factory) {
-		context.subscriptions.push(factory);
-	}
 
 	// override VS Code's default implementation of the debug hover
 	// here we match only Mock "variables", that are words starting with an '$'
@@ -88,7 +80,7 @@ class MadeConfigurationProvider implements vscode.DebugConfigurationProvider {
 
 		if (!config.type && !config.request && !config.name) {
 			const editor = vscode.window.activeTextEditor;
-			if (editor && editor.document.languageId === matlabType) {
+			if (editor) {
 				config.type = matlabDebugType;
 				config.name = 'Launch';
 				config.request = 'launch';

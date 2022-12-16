@@ -2,7 +2,11 @@
   "name": "made-for-vs-code",
   "displayName": "MaDe for VS Code",
   "description": "Matlab Debugger for VS Code",
-  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "github:mauzigoe/MaDe-for-VS-Code"
+  },
+  "version": "0.1.3",
   "engines": {
     "vscode": "^1.71.0"
   },
@@ -180,12 +184,17 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --tsconfig=./tsconfig.json --external:vscode --format=cjs --platform=node --outfile=./out/extension.js",
+    "watch": "npm run -S esbuild-base --platform=node --sourcemap --sources-content=false --watch",
+    "build": "npm run -S esbuild-base --platform=node --sourcemap --sources-content=false",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "publish-pre-release": "vsce publish --pre-release",
+    "vscode:prepublish": "rimraf dist && npm run -S esbuild-base -- --minify ",
+    "test": "npm run typecheck"
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",
@@ -208,9 +217,9 @@
     "path-browserify": "^1.0.1",
     "rimraf": "^3.0.2",
     "timers-promises": "^1.0.1",
-    "typescript": "^4.6.3",
+    "typescript": "^4.9.4",
     "url": "^0.11.0",
-    "vsce": "^2.7.0"
+    "vsce": "^1.7.0"
   },
   "dependencies": {
     "peela": "^1.3.3",
