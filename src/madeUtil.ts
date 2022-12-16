@@ -1,4 +1,3 @@
-import * as path from 'path';
 import { RuntimeType } from "./madeInfo";
 
 export function verifyBreakpoints(_runtime : RuntimeType, path: string, line: number){

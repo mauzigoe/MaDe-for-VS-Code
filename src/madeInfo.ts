@@ -1,8 +1,4 @@
 import * as vscode from 'vscode';
-import { OutputChannel } from 'vscode';
-import { StdioPipe } from 'child_process';
-import { Breakpoint } from '@vscode/debugadapter';
-import { Interface } from 'readline';
 
 export const matlabType = "matlab";
 export const matlabDebugType = "matlabDebug";

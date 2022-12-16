@@ -1,10 +1,5 @@
-import {ResolveType, RejectType, regexPrompt, SetBreakpointResult, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, regexEvaluateArray, regexEvaluateValue, regexCaptureColumns, regexCaptureValues, EvaluateValue, EvaluateResult, regexCaptureStatement, regexVarEqual, regexCaptureBeforePrompt} from './madeInfo';
+import {ResolveType, RejectType, regexPrompt, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, EvaluateResult, regexCaptureBeforePrompt} from './madeInfo';
 import './madeInfo';
-import { MatlabDebugSession } from './madeDebug';
-import { Stream } from 'stream';
-import { Breakpoint } from '@vscode/debugadapter';
-import { resolve } from 'path';
-import { match, rejects } from 'assert';
 
 export function stackTraceOnResolveHandler(stream: string) {
     let madeStack: MadeFrame[] = [];

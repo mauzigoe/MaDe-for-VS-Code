@@ -5,13 +5,10 @@ import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken 
 import {matlabType, matlabDebugType} from './madeInfo';
 import { MatlabDebugSession } from './madeDebug';
 
-let outChannel = vscode.window.createOutputChannel('Matlab');
-
 export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
     console.log("activateMadeDebug");
 	// register a configuration provider for 'matlab' debug type
-	outChannel = vscode.window.createOutputChannel("Matlab Output Channel");
-	
+		
 	context.subscriptions.push(
 		vscode.commands.registerCommand('extension.matlabDebug.runEditorContents', (resource: vscode.Uri) => {
 			let targetResource = resource;

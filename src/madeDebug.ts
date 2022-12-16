@@ -14,19 +14,12 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, InvalidatedEvent,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint, MemoryEvent, Response
+	Thread, StackFrame, Source, Breakpoint,
 } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
-import * as base64 from 'base64-js';
-import { ChildProcess, spawn, StdioPipe } from 'child_process';
-import { read } from 'fs';
-import { setFlagsFromString } from 'v8';
-import { ConfigurationTarget, DebugProtocolBreakpoint, EnvironmentVariableMutatorType, OutputChannel, TreeItem } from 'vscode';
-import { threadId } from 'worker_threads';
+import { OutputChannel } from 'vscode';
 import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
-import * as fs from 'fs';
-import { dapEvent, MadeFrame, matlabDebugType, SetBreakpointResult } from './madeInfo';
+import { MadeFrame} from './madeInfo';
 import * as path from 'path';
 
 /**
@@ -260,8 +253,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 	protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
 		
-		const path = args.source.path as string;
-
 		// clear breakpoint
 
 		// get bp lines

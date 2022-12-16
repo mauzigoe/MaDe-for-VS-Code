@@ -1,35 +1,11 @@
-import {
-	Logger, logger,
-	LoggingDebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, InvalidatedEvent,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint, MemoryEvent, Response
-} from '@vscode/debugadapter';
-import { DebugProtocol } from '@vscode/debugprotocol';
-import { match, rejects } from 'assert';
-import * as base64 from 'base64-js';
-import { ChildProcess, exec, spawn, SpawnOptions, StdioPipe } from 'child_process';
-import { debug, log } from 'console';
-import { access, chmodSync, OpenDirOptions, RmOptions, write } from 'fs';
-import { glob } from 'glob';
-import { CommonFunctions } from 'mocha/lib/interfaces/common';
-import { networkInterfaces, type } from 'os';
-import { resolve } from 'path';
-import { addListener, eventNames, exit, off, removeListener, stderr, stdout } from 'process';
-import * as rl from 'readline';
-import { Readline } from 'readline/promises';
-import { EventEmitter, Readable, Stream } from 'stream';
+import { ChildProcess, spawn, StdioPipe } from 'child_process';
+import { EventEmitter} from 'stream';
 import { setTimeout } from 'timers/promises';
-import { isBuffer } from 'util';
-import { setFlagsFromString } from 'v8';
-import { OutputChannel, ProcessExecutionOptions, window } from 'vscode';
+import { OutputChannel} from 'vscode';
 import './madeInfo';
 import {PassThrough} from 'stream';
-import { SrvRecord } from 'dns';
-import { Func } from 'mocha';
-import { isAnyArrayBuffer } from 'util/types';
-import { ResolveType, RejectType, regexPrompt, regexMatchBeforePrompt, regexEvaluateArray, regexEvaluateValue, ClearBreakpointResult, SetBreakpointResult, ContinueResult, EvaluateResult, regexShellMode, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
-import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnRejectHandler, evaluateOnResolveHandler, readyForInput, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler';
+import { ResolveType, RejectType, ContinueResult, EvaluateResult, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler';
 import './madeInfo';
 import * as path from 'path';
 
@@ -70,7 +46,6 @@ export class MaDeProcess {
     dapEvent = new EventEmitter();
     constructor(command: string, argList: string[], options: MatlabDebugProcessOptions) {
 
-        let _this = this;
         //this._runtime = spawn(command, argList, options.runtimeOption );
         this._runtime = spawn(command, argList );
 
@@ -290,8 +265,6 @@ export class MaDeProcess {
         if (this.runtimeCmdStack.length>0){
             let funcstruct: FuncStruct<any> = this.runtimeCmdStack[0];
             
-            let proceed: boolean = false;
-
             if (pipe === StdOutErr.stdOut) {
                 this.stdoutStream += stream;
                 funcstruct.stdEmmit.emit('dataout',this.stdoutStream);

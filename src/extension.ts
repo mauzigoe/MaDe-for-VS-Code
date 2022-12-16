@@ -2,9 +2,9 @@
 // Import the module and reference it with the alias vscode in your code below
 import {activateMadeDebug} from './activateMadeDebug';
 import * as vscode from 'vscode';
-import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
+//import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
 
-const runMode: 'external' | 'server' | 'inline' = 'external';
+//const runMode: 'external' | 'server' | 'inline' = 'external';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
