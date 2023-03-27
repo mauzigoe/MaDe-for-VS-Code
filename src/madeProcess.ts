@@ -258,7 +258,7 @@ export class MaDeProcess {
 
     private tryCallbackFromCmdStack(stream: string , pipe: StdOutErr )  {
         this.lastLine = stream.toString().split('\n').at(-1) ?? "";
-        
+        console.log(stream.toString());
         if (this.runtimeCmdStack.length>0){
             let funcstruct: FuncStruct<any> = this.runtimeCmdStack[0];
             

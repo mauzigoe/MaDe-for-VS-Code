@@ -56,15 +56,23 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
 	 */
-	public constructor() {
+	public constructor(command?: string , licensePath?: string) {
 		super("made-debug.txt", true);
 
 		// this debugger uses zero-based lines and columns
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
 
-		let command = '/usr/bin/env';
+		if (!command){
+			command = '/usr/bin/env';
+		}
 		let argList = ['matlab', '-nosplash', '-nodesktop', '-singleCompThread'];
+	
+		if (licensePath){
+			argList.push('-c');
+			argList.push(licensePath);
+		}
+		
 		let options : MatlabDebugProcessOptions = { 
 			runtimeOption: {
 				stdio: [ 'pipe', 'pipe', 'pipe']

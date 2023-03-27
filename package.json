@@ -18,6 +18,21 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "MaDe for VS Code",
+      "properties": {
+          "matlabExecutablePath": {
+            "type": "string",
+            "pattern": "^(.+)/([^/]+)$",
+            "default": null
+          },
+          "licensePath": {
+            "type": "[string, null]",
+            "pattern": "^(.+)/([^/]+)$",
+            "default": null
+          }
+      }
+    },
     "breakpoints": [
       {
         "language": "matlab"
@@ -37,19 +52,13 @@
         "category": "Matlab Debug",
         "enablement": "!inDebugMode",
         "icon": "$(play)"
-      },
-      {
-        "command": "extension.matlabDebug.toggleFormatting",
-        "title": "Toggle between decimal and hex formatting"
       }
     ],
     "debuggers": [
       {
         "program": "./out/debugAdapter.js",
         "type": "matlabDebug",
-        "languages": [
-          "matlab"
-        ],
+        "languages": ["matlab"],
         "label": "Matlab Debug",
         "configurationAttributes": {
           "launch": {
@@ -173,12 +182,6 @@
         {
           "command": "extension.matlabDebug.runEditorContents",
           "when": "resourceLangId == matlab"
-        }
-      ],
-      "debug/variables/context": [
-        {
-          "command": "extension.matlabDebug.toggleFormatting",
-          "when": "debugType == 'matlabDebug' && debugProtocolVariableMenuContext == 'simple'"
         }
       ]
     }
