@@ -197,7 +197,7 @@ export class MaDeProcess {
         let stdEmmit = new EventEmitter();
         let errEmmit = new EventEmitter();
 
-        let prom: Promise<any> = new Promise<DefaultResult>((resolve,reject)=>{
+        let prom: Promise<string> = new Promise<DefaultResult>((resolve,reject)=>{
 
             let _resolve = (x:any) => {
                 stdEmmit.removeAllListeners('dataout');
