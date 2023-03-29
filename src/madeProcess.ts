@@ -4,7 +4,7 @@ import { setTimeout } from 'timers/promises';
 import './madeInfo';
 import {PassThrough} from 'stream';
 import { ResolveType, RejectType, ContinueResult, EvaluateResult, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
-import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler, shellInDebugModeDefaultOnRejectHandler, shellInDebugModeDefaultOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler';
 import './madeInfo';
 import * as path from 'path';
 
@@ -20,7 +20,9 @@ export type FuncStruct<T> = {
     promise: Promise<T>,
     stdoutFunc: ( resolve: ResolveType<T>, reject: RejectType<T>, stream: string) => void,
     stderrFunc: ( resolve: ResolveType<T>, reject: RejectType<T>, stream: string) => void,
-    writeCmd: string
+    writeCmd: string,
+    stdout: string,
+    stderr: string,
 };
 
 
@@ -28,38 +30,27 @@ export class MaDeProcess {
     
     _runtime: ChildProcess;
     bpId = 0;
-    runtimeCmdStack: FuncStruct<any>[];
+    runtimeCmdStack: FuncStruct<any>[] = [];
     runtimeReady: Promise<boolean>;
     _this = this;
 
-    stdoutStream: string;
-    stderrStream: string;
+    lastLine: string = "";
 
-    lastLine: string;
-    sourceFile: string;
-
-    debuggerStdoutPassthrough = new PassThrough;
-    debuggerStderrPassthrough = new PassThrough;
+    debuggerStdoutPassthrough: PassThrough = new PassThrough;
+    debuggerStderrPassthrough: PassThrough = new PassThrough;
 
     dapEvent = new EventEmitter();
+
     constructor(command: string, argList: string[], options: MatlabDebugProcessOptions) {
 
-        this._runtime = spawn(command, argList );
+        this._runtime = spawn(command, argList);
 
         if(!(this._runtime.stdout && this._runtime.stderr && this._runtime.stdin)){
             this.throwError(madeError.noStd);
         }
 
-        this.debuggerStdoutPassthrough = new PassThrough;
-        this.debuggerStderrPassthrough = new PassThrough;
-
         this._runtime.stdout?.pipe(this.debuggerStdoutPassthrough);
         this._runtime.stderr?.pipe(this.debuggerStderrPassthrough);
-
-        this.lastLine = "";
-        this.stdoutStream = "";
-        this.stderrStream = "";
-        this.runtimeCmdStack = [];
 
         this.runtimeReady = this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, "").then(defaultOnResolveHandler,defaultOnRejectHandler);
 
@@ -76,13 +67,7 @@ export class MaDeProcess {
         this.debuggerStderrPassthrough.addListener("data", (data: string) => {
             this.tryCallbackFromCmdStack(data, StdOutErr.stdErr);
         });
-       
-        this.sourceFile = "";
         
-    }
-
-    public setSourceFile(sourceFile: string) {
-        this.sourceFile = sourceFile;
     }
 
     public initializeOnlyShell(): Promise<boolean> {
@@ -151,11 +136,11 @@ export class MaDeProcess {
         return this.registerFuncstruct(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler);
     }
 
-    public async continue(path?: string): Promise<ContinueResult> {
+    public async continue(isInDebugMode: boolean, path?: string): Promise<ContinueResult> {
        
         let writeCmd;       
         //if (regex.ShellMode.test(this._last_line.toString())){
-        if (!regexDebugMode.test(this.lastLine)){
+        if (!isInDebugMode){
             if (path){
                 writeCmd = `run("${path}")\n`;
             }
@@ -194,10 +179,17 @@ export class MaDeProcess {
         return this.registerFuncstruct(stackTraceStdOutHandler,defaultStdErrHandler,writeCmd).then(stackTraceOnResolveHandler,stackTraceOnRejectHandler);
     }
 
+    public isInDebugMode(): Promise<boolean> {
+        let writeCmd = "\n";
+
+        return this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(shellInDebugModeDefaultOnResolveHandler,shellInDebugModeDefaultOnRejectHandler);
+
+    }
+
     // optionsInfo needs to be porperly typed
     private registerFuncstruct(
         stdoutFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) => void,
-        stderrFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) =>void,
+        stderrFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) => void,
         writeCmd: string, optionsInfo?: any): Promise<DefaultResult>{
 
         let funcstruct: FuncStruct<DefaultResult>; 
@@ -205,7 +197,7 @@ export class MaDeProcess {
         let stdEmmit = new EventEmitter();
         let errEmmit = new EventEmitter();
 
-        let prom = new Promise<DefaultResult>((resolve,reject)=>{
+        let prom: Promise<any> = new Promise<DefaultResult>((resolve,reject)=>{
 
             let _resolve = (x:any) => {
                 stdEmmit.removeAllListeners('dataout');
@@ -225,7 +217,7 @@ export class MaDeProcess {
             errEmmit.addListener('dataerr', function (stderrStream: string) {return stderrFunc(_resolve,_reject,stderrStream);});
 
         }).then(
-            (value)=>{ 
+            (value)=>{
                 console.log(`writeCmd ${funcstruct.writeCmd} resolved`);
                 return value;
             },
@@ -245,7 +237,9 @@ export class MaDeProcess {
             promise: prom,
             stdoutFunc: stdoutFunc,
             stderrFunc: stderrFunc,
-            writeCmd: writeCmd
+            writeCmd: writeCmd,
+            stdout: "",
+            stderr: "",
         };
         
         this.runtimeCmdStack.push(funcstruct);
@@ -259,14 +253,16 @@ export class MaDeProcess {
     private tryCallbackFromCmdStack(stream: string , pipe: StdOutErr )  {
         this.lastLine = stream.toString().split('\n').at(-1) ?? "";
         console.log(stream.toString());
+        
         if (this.runtimeCmdStack.length>0){
             let funcstruct: FuncStruct<any> = this.runtimeCmdStack[0];
             
             if (pipe === StdOutErr.stdOut) {
-                this.stdoutStream += stream;
-                funcstruct.stdEmmit.emit('dataout',this.stdoutStream);
+                funcstruct.stdout += stream;
+                funcstruct.stdEmmit.emit('dataout', funcstruct.stdout);
             } else if (pipe === StdOutErr.stdErr) {
-                this.stderrStream += stream;
+                funcstruct.stderr += stream;
+                // send stderr too maybe?
                 funcstruct.stdEmmit.emit('dataerr');
             }
             else {
@@ -290,15 +286,27 @@ export class MaDeProcess {
     }
 
     private cleanElementOnStack(){
+        
         console.log(`cleanElementOnStack`);
-        this.runtimeCmdStack.shift(); 
-        this.stdoutStream = this.stdoutStream.toString().replace(regexMatchBeforePromptWithoutGlobal,""); 
-        this.stderrStream = this.stdoutStream.toString().replace(regexMatchBeforePromptWithoutGlobal,""); 
+
+        let stdout = this.runtimeCmdStack[0].stdout.toString().replace(regexMatchBeforePromptWithoutGlobal,"");;
+        let stderr = this.runtimeCmdStack[0].stderr.toString().replace(regexMatchBeforePromptWithoutGlobal,"");;  
+        
+        this.runtimeCmdStack.shift();
         console.log(`new stack length: ${this.runtimeCmdStack.length}`);
-        if (this.runtimeCmdStack.length >= 1){
+
+        if (this.runtimeCmdStack.length > 0){
+            
+            let firstElement = this.runtimeCmdStack[0];
+            firstElement.stdout = stdout;
+            firstElement.stderr = stdout;
+
             console.log(`nextCmd: ${this.runtimeCmdStack[0].writeCmd}`);
         }
+        else {
+            this.lastLine = stdout;
+        }
+        
     }
 
 }
-

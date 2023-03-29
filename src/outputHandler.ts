@@ -1,7 +1,7 @@
 import {ResolveType, RejectType, regexPrompt, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, EvaluateResult, regexCaptureBeforePrompt} from './madeInfo';
 import './madeInfo';
 
-export function stackTraceOnResolveHandler(stream: string) {
+export function stackTraceOnResolveHandler(stream: string): MadeFrame[] {
     let madeStack: MadeFrame[] = [];
     let matchAllStack = [...stream.toString().matchAll(regexDbStack)];
     matchAllStack.forEach((value: RegExpMatchArray, index: number)=>{
@@ -32,17 +32,17 @@ export function stackTraceOnResolveHandler(stream: string) {
     }
 }
 
-export function stackTraceOnRejectHandler(stream: string) {
+export function stackTraceOnRejectHandler(stream: string): MadeFrame[] {
     return [];
 }
-export function evaluateOnResolveHandler(stream: string) {
+export function evaluateOnResolveHandler(stream: string) : string {
     let matchStream =  stream.match(regexCaptureBeforePrompt);
     if (matchStream){
         if (matchStream.length !== 1) {
             console.log(`matchStream.length != 1: value matchStream = ${matchStream}`);
             return stream;
         }
-        return matchStream[0];
+        return matchStream[0].toString();
     }
     else {
         return stream;
@@ -54,7 +54,7 @@ export function evaluateOnRejectHandler(stream: string) {
     return ret;
 }
 
-export function stackTraceStdOutHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): DefaultRejectType | DefaultResolveType | void {
+export function stackTraceStdOutHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string) {
     if( readyForInputDebugMode(stream)) {
         resolve(stream);
     }
@@ -63,21 +63,29 @@ export function stackTraceStdOutHandler(resolve: DefaultResolveType, reject: Def
     }
 }
 
-export function defaultOnResolveHandler(value: any) {
-   return true ;
+export function defaultOnResolveHandler(value: any): boolean {
+    return true ;
 }
 
-export function defaultOnRejectHandler(value: any) {
+export function defaultOnRejectHandler(value: any): boolean {
     return false;
 }
 
-export function defaultStdOutHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): RejectType<DefaultResult> | ResolveType<DefaultResult> | void {
+export function shellInDebugModeDefaultOnResolveHandler(stream: string): boolean {
+    return readyForInputDebugMode(stream);
+}
+
+export function shellInDebugModeDefaultOnRejectHandler(stream: string) {
+    return false;
+}
+
+export function defaultStdOutHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string) {
     if (readyForInput(stream)){
         resolve(stream);
     }
 }
 
-export function defaultStdErrHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string): RejectType<DefaultResult> | ResolveType<DefaultResult> | void {
+export function defaultStdErrHandler(resolve: DefaultResolveType, reject: DefaultRejectType, stream: string) {
     reject(stream);
 }
 

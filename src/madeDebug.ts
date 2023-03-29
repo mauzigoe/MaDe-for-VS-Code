@@ -14,12 +14,13 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, StackFrame, Source, Breakpoint,
+	Thread, StackFrame, Source, Breakpoint, Event,
 } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
 import { MadeFrame} from './madeInfo';
 import * as path from 'path';
+import { window } from 'vscode';
 
 /**
  * This interface describes the mock-debug specific launch attributes
@@ -220,8 +221,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
 		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
-		this._madeprocess.setSourceFile(args.program);
-
 		let ready = await this._madeprocess.runtimeReady;
 
 		if (!ready) {
@@ -240,7 +239,10 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		await cdProm;
 		await dbModeProm;
 
-		await this._madeprocess.continue(args.program);
+		let isInDebugMode = await this._madeprocess.isInDebugMode();
+		console.log("launchRequest:");
+		console.log(`isinDebugMode: ${isInDebugMode}`);
+		await this._madeprocess.continue(isInDebugMode, args.program);
 		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID);
 		this.sendEvent(stop);
 
@@ -319,8 +321,21 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	
 	protected async continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): Promise<void> {
 
-		this._madeprocess.continue();//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
-
+		let isInDebugMode: boolean = await this._madeprocess.isInDebugMode();
+		
+		if (!isInDebugMode){
+			// don't know what to do exactly atm
+			// possible:
+			// 	- use MadeProcess.prepareDebugMode
+			window.showErrorMessage("Bug: Continue Request failed. Matlab Shell not in Debug Mode");
+			this.sendEvent(new Event("shell not in debug mode"));
+			let _response = response;
+			_response.success = false;
+			this.sendResponse(_response);
+			return;
+		}
+		
+		this._madeprocess.continue(isInDebugMode);//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
 		this.sendEvent(new StoppedEvent('breakpoint',MatlabDebugSession.threadID));
 
 		this.sendResponse(response);
