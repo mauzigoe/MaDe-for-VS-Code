@@ -14,14 +14,13 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, StackFrame, Source, Breakpoint, Event,
+	Thread, StackFrame, Source, Breakpoint,
 } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
 import { MadeFrame} from './madeInfo';
 import * as path from 'path';
-import { window } from 'vscode';
-import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler } from './outputHandler';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler } from './outputHandler';
 
 /**
  * This interface describes the mock-debug specific launch attributes
@@ -191,6 +190,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 		//response.body.supportSuspendDebuggee = false;
 		response.body.supportTerminateDebuggee = false;
+		response.body.supportsTerminateRequest = true;
 		//response.body.supportsFunctionBreakpoints = false;
 
 		this.sendResponse(response);
@@ -243,7 +243,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		let isInDebugMode = await this._madeprocess.isInDebugMode();
 		console.log("launchRequest:");
 		console.log(`isinDebugMode: ${isInDebugMode}`);
-		await this._madeprocess.continue(isInDebugMode, args.program);
+		await this._madeprocess.runOrDbcont(isInDebugMode, args.program);
 		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID);
 		this.sendEvent(stop);
 
@@ -354,19 +354,31 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 		let isInDebugMode: boolean = await this._madeprocess.isInDebugMode();
 		
+		if (isInDebugMode) {
+			await this._madeprocess.runOrDbcont(isInDebugMode);//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
+			isInDebugMode = await this._madeprocess.isInDebugMode();
+		}
+
+		
 		if (!isInDebugMode){
 			// don't know what to do exactly atm
 			// possible:
 			// 	- use MadeProcess.prepareDebugMode
-			window.showErrorMessage("Bug: Continue Request failed. Matlab Shell not in Debug Mode");
-			this.sendEvent(new Event("shell not in debug mode"));
-			let _response = response;
-			_response.success = false;
-			this.sendResponse(_response);
-			return;
+			
+			/*
+			this.sendErrorResponse(response,{
+				id: 1003,
+				format: "Bug: Continue Request failed. Matlab Shell not in Debug Mode",
+				showUser: true,
+			});
+			*/
+
+			this.sendEvent(new TerminatedEvent(false));
+
+			return ;
+
 		}
 		
-		this._madeprocess.continue(isInDebugMode);//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
 		this.sendEvent(new StoppedEvent('breakpoint',MatlabDebugSession.threadID));
 
 		this.sendResponse(response);
@@ -407,11 +419,45 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 	*/
 
+	protected terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request | undefined): void {
+
+		let success = this._madeprocess._runtime.kill();
+
+		if (!success) {
+			this.sendErrorResponse(
+				response,
+				{
+					id: 1020,
+					format: `could not kill matlab terminal (PID: ${this._madeprocess._runtime.pid ?? "ERR"})`
+				}
+			);
+		}		
+		else {
+			this.sendResponse(response);
+		}
+
+		return;
+
+	}
+
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
 
 		let isRejected: boolean = false; 
 
-		let result = await this._madeprocess.evaluate(args.expression).then((value) => {return value;}, (value) =>{ isRejected = true; return value; });
+        let writeCmd = `${args.expression}\n`;
+
+        let result = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, writeCmd)
+			.then(evaluateOnResolveHandler)
+			.then(
+				(value) => { 
+					return value;
+				},
+				(value) => {
+					isRejected = true; 
+					return value;
+				}
+			);
+
 
 		if (!isRejected) {
 			response.body = {
@@ -421,7 +467,11 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			this.sendResponse(response);
 		}
 		else {
-			this.sendErrorResponse(response,1001);
+			this.sendErrorResponse(response,{
+				id: 1001,
+				format: result,
+				showUser: true
+			});
 			return ;
 		}
 	

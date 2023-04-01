@@ -3,8 +3,8 @@ import { EventEmitter} from 'stream';
 import { setTimeout } from 'timers/promises';
 import './madeInfo';
 import {PassThrough} from 'stream';
-import { ResolveType, RejectType, ContinueResult, EvaluateResult, regexDebugMode, DefaultResult, SetBreakpointsResult, CdResult, NextResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
-import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler, shellInDebugModeDefaultOnRejectHandler, shellInDebugModeDefaultOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler';
+import { ResolveType, RejectType, ContinueResult, DefaultResult, CdResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, shellInDebugModeDefaultOnRejectHandler, shellInDebugModeDefaultOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler';
 import './madeInfo';
 import * as path from 'path';
 
@@ -87,7 +87,7 @@ export class MaDeProcess {
         return this.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler);
     }
 
-    public async continue(isInDebugMode: boolean, path?: string): Promise<ContinueResult> {
+    public async runOrDbcont(isInDebugMode: boolean, path?: string): Promise<ContinueResult> {
        
         let writeCmd;       
         //if (regex.ShellMode.test(this._last_line.toString())){
@@ -110,18 +110,6 @@ export class MaDeProcess {
             //this works given that the sourrounding registered function in a block are awaited  
 
         return prom;
-    }
-
-    /**
-     * evaluate
-     */
-    public evaluate(varname: string): Promise<EvaluateResult> {
-        let writeCmd = `${varname}\n`;
-
-        let prom = this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(evaluateOnResolveHandler);
-
-        return prom;
-
     }
 
     public async stack(): Promise<StackResult> {
