@@ -2,7 +2,7 @@
 
 `MaDe`, Matlab Debugger for VS Code, is an Extension, which helps you to debug `matlab`-scripts in VS Code. Right now it only works on `linux` (maybe `MACOS` too).
 
-The Software is in early development, but already has some basic functionailities (see [Features](#features)).   
+The Software is in early development, but already has some basic functionailities (see [Features](#features)). Bugs are to be expected.
 
 ## Features
 
