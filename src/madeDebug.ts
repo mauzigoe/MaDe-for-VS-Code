@@ -373,9 +373,26 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 
 	protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): Promise<void> {
-		await this._madeprocess.next();
-		this.sendEvent(new StoppedEvent('step',MatlabDebugSession.threadID));
-		this.sendResponse(response);
+
+		let writeCmd = "dbstep\n";
+
+        let successfulWriteCmd = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
+            .then(
+                (value: any) => {
+					this.sendEvent(new StoppedEvent('step', MatlabDebugSession.threadID));
+					return true;
+                },
+				(value: any) => {
+                	return false;
+				}
+            );
+
+		if (successfulWriteCmd){
+			this.sendResponse(response);
+		}
+		else {
+			// Error handling needed
+		}
 	}
 
 	/* Soon to come

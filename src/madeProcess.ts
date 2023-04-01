@@ -82,20 +82,6 @@ export class MaDeProcess {
 
     }
 
-    public async next(): Promise<NextResult> {
-
-        let writeCmd = "dbstep\n";
-
-        return this.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
-            .then(
-                (value: any) => {
-                    this.sendEvent('stopOnStep');return defaultOnResolveHandler(value);
-                },
-                defaultOnRejectHandler
-            );
-
-    }
-
     public async cd(folder: string): Promise<CdResult> {
         let writeCmd = `cd ${folder}\n`;
         return this.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler);
@@ -229,7 +215,7 @@ export class MaDeProcess {
 
     }
 
-    private sendEvent(reason: string, ...args: any[]){
+    public sendEvent(reason: string, ...args: any[]){
 		setTimeout(0).then(() => {
             this.dapEvent.emit(reason, ...args);
         });
