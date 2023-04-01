@@ -20,7 +20,7 @@ import { DebugProtocol } from '@vscode/debugprotocol';
 import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
 import { MadeFrame} from './madeInfo';
 import * as path from 'path';
-import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler } from './outputHandler';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler } from './outputHandler';
 
 /**
  * This interface describes the mock-debug specific launch attributes
@@ -316,12 +316,22 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 
 	protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-		let test = ((await this._madeprocess.stack().then((value:any)=>{return value;})).map((value: MadeFrame, index: number) => {
+  
+		let writeCmd = "dbstack('-completenames')\n";
+
+		let madeFrames = (
+				await this._madeprocess
+				.enqueMatlabCmd(stackTraceStdOutHandler,defaultStdErrHandler,writeCmd)
+				.then(stackTraceOnResolveHandler,stackTraceOnRejectHandler)
+				.then((value:any)=>{return value;})
+			);
+
+		let stackFrames = madeFrames.map((value: MadeFrame, index: number) => {
 			// rn, only the file currently debugged can be resolved by in the stack trace
 			return new StackFrame(index,value.path, new Source(path.basename(value.path), value.path),value.line);
-		}));
+		});
 		response.body = {
-			stackFrames : test
+			stackFrames : stackFrames
 		};
 
 		

@@ -112,12 +112,6 @@ export class MaDeProcess {
         return prom;
     }
 
-    public async stack(): Promise<StackResult> {
-        let writeCmd = "dbstack('-completenames')\n";
-        
-        return this.enqueMatlabCmd(stackTraceStdOutHandler,defaultStdErrHandler,writeCmd).then(stackTraceOnResolveHandler,stackTraceOnRejectHandler);
-    }
-
     public isInDebugMode(): Promise<boolean> {
         let writeCmd = "\n";
 

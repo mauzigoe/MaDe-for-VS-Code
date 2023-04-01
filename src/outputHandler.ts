@@ -2,18 +2,18 @@ import {ResolveType, RejectType, regexPrompt, DefaultResult, DefaultResolveType,
 import './madeInfo';
 
 export function stackTraceOnResolveHandler(stream: string): MadeFrame[] {
-    let madeStack: MadeFrame[] = [];
+    let madeFrame: MadeFrame[] = [];
     let matchAllStack = [...stream.toString().matchAll(regexDbStack)];
     matchAllStack.forEach((value: RegExpMatchArray, index: number)=>{
         if (value.length === 4){
-            madeStack = madeStack.concat([{ 
+            madeFrame = madeFrame.concat([{ 
                 path: value[1],
                 line: parseInt(value[3]),
                 localFunc: value[2]
             }]);
         }
         else if (value.length === 3 ){
-            madeStack = madeStack.concat([{ 
+            madeFrame = madeFrame.concat([{ 
                 path: value[1],
                 line: parseInt(value[2])
             }]);
@@ -24,11 +24,11 @@ export function stackTraceOnResolveHandler(stream: string): MadeFrame[] {
             console.log(`${value.groups}`);
         }
     });
-    if (madeStack.length === 0){
+    if (madeFrame.length === 0){
         return [];
     }
     else {
-        return madeStack;
+        return madeFrame;
     }
 }
 
