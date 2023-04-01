@@ -52,7 +52,7 @@ export class MaDeProcess {
         this._runtime.stdout?.pipe(this.debuggerStdoutPassthrough);
         this._runtime.stderr?.pipe(this.debuggerStderrPassthrough);
 
-        this.runtimeReady = this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, "").then(defaultOnResolveHandler,defaultOnRejectHandler);
+        this.runtimeReady = this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "").then(defaultOnResolveHandler,defaultOnRejectHandler);
 
         this.debuggerStdoutPassthrough.addListener("data", (data: string) => {
             let _this = this;
@@ -70,58 +70,23 @@ export class MaDeProcess {
         
     }
 
-    public initializeOnlyShell(): Promise<boolean> {
-        return this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, "s = settings; s.matlab.editor.OpenFileAtBreakpoint.TemporaryValue = 0; clear s\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
-    }
-    
-     /**
-     * setBreakPoint
-     */
-    //public async setBreakPoint(path: string, line: number) {
-    public clearBreakpoints(path: string | unknown): Promise<boolean> {
-        let writeCmd;
-
-        if (!path) {
-            writeCmd = `dbclear all\n`;
-        }
-        else {
-            writeCmd = `dbclear in ${path}\n`;
-        }
-
-        return this.registerFuncstruct(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler);
+    public inhibitGuiForDebugMode(): Promise<boolean> {
+        return this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "s = settings; s.matlab.editor.OpenFileAtBreakpoint.TemporaryValue = 0; clear s\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
     }
 
     public prepareDebugMode(srcPath: string): [Promise<boolean>,Promise<boolean>]{
         let writeCmd = `dbstop in ${path.basename(srcPath)} at 0\n` ;
         let cdProm = this.cd(path.dirname(srcPath));
-        let dbModeProm = this.registerFuncstruct(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler, defaultOnRejectHandler);
+        let dbModeProm = this.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler, defaultOnRejectHandler);
         return [cdProm,dbModeProm];
 
     }
-    
-    /**
-     * setBreakPoint
-     */
-    public setBreakpoints(path: string, line: number): Promise<SetBreakpointsResult> {
-
-        let writeCmd = `dbstop in ${path} at ${line}\n`;
-
-        return this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler, defaultOnRejectHandler)
-            .then(
-                (value)  => { 
-                    return [value, line, this.bpId++];
-                }, 
-                (reason) => {
-                    return [false, line, this.bpId++];
-                }
-            );
-    }   
 
     public async next(): Promise<NextResult> {
 
         let writeCmd = "dbstep\n";
 
-        return this.registerFuncstruct(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
+        return this.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
             .then(
                 (value: any) => {
                     this.sendEvent('stopOnStep');return defaultOnResolveHandler(value);
@@ -133,7 +98,7 @@ export class MaDeProcess {
 
     public async cd(folder: string): Promise<CdResult> {
         let writeCmd = `cd ${folder}\n`;
-        return this.registerFuncstruct(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler);
+        return this.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler);
     }
 
     public async continue(isInDebugMode: boolean, path?: string): Promise<ContinueResult> {
@@ -151,7 +116,7 @@ export class MaDeProcess {
 
         let prom: Promise<ContinueResult>;
         if (writeCmd){
-            prom = this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler); 
+            prom = this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler); 
         }
         else {
             prom = Promise.reject(false);
@@ -167,7 +132,7 @@ export class MaDeProcess {
     public evaluate(varname: string): Promise<EvaluateResult> {
         let writeCmd = `${varname}\n`;
 
-        let prom = this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(evaluateOnResolveHandler);
+        let prom = this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(evaluateOnResolveHandler);
 
         return prom;
 
@@ -176,23 +141,21 @@ export class MaDeProcess {
     public async stack(): Promise<StackResult> {
         let writeCmd = "dbstack('-completenames')\n";
         
-        return this.registerFuncstruct(stackTraceStdOutHandler,defaultStdErrHandler,writeCmd).then(stackTraceOnResolveHandler,stackTraceOnRejectHandler);
+        return this.enqueMatlabCmd(stackTraceStdOutHandler,defaultStdErrHandler,writeCmd).then(stackTraceOnResolveHandler,stackTraceOnRejectHandler);
     }
 
     public isInDebugMode(): Promise<boolean> {
         let writeCmd = "\n";
 
-        return this.registerFuncstruct(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(shellInDebugModeDefaultOnResolveHandler,shellInDebugModeDefaultOnRejectHandler);
+        return this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(shellInDebugModeDefaultOnResolveHandler,shellInDebugModeDefaultOnRejectHandler);
 
     }
 
     // optionsInfo needs to be porperly typed
-    private registerFuncstruct(
+    public enqueMatlabCmd(
         stdoutFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) => void,
         stderrFunc: ( resolve: ResolveType<DefaultResult>, reject: RejectType<DefaultResult>, stream: string) => void,
         writeCmd: string, optionsInfo?: any): Promise<DefaultResult>{
-
-        let funcstruct: FuncStruct<DefaultResult>; 
 
         let stdEmmit = new EventEmitter();
         let errEmmit = new EventEmitter();
@@ -200,6 +163,8 @@ export class MaDeProcess {
         let prom: Promise<string> = new Promise<DefaultResult>((resolve,reject)=>{
 
             let _resolve = (x:any) => {
+                console.log(`writeCmd: ${writeCmd}`);
+                console.log(`resolved`);
                 stdEmmit.removeAllListeners('dataout');
                 errEmmit.removeAllListeners('dataerr');
                 this.cleanElementOnStack();
@@ -207,6 +172,8 @@ export class MaDeProcess {
             };
 
             let _reject = (x:any) => {
+                console.log(`writeCmd: ${writeCmd}`);
+                console.log(`rejected`);
                 stdEmmit.removeAllListeners('dataout');
                 errEmmit.removeAllListeners('dataerr');
                 this.cleanElementOnStack();
@@ -216,22 +183,9 @@ export class MaDeProcess {
             stdEmmit.addListener('dataout', function (stdoutStream: string) {return stdoutFunc(_resolve,_reject,stdoutStream);});
             errEmmit.addListener('dataerr', function (stderrStream: string) {return stderrFunc(_resolve,_reject,stderrStream);});
 
-        }).then(
-            (value)=>{
-                console.log(`writeCmd ${funcstruct.writeCmd} resolved`);
-                return value;
-            },
-            (reason: any ) => {
-                console.log(`writeCmd ${funcstruct.writeCmd} rejected`);
-                return reason; 
-            }
-        ).catch(
-            (reason: any) => {
-                console.log(`writeCmd ${funcstruct.writeCmd} catched`);
-            }
-        );
+        });
 
-        funcstruct = {
+        let funcstruct: FuncStruct<DefaultResult> = {
             stdEmmit: stdEmmit,
             errEmmit: errEmmit,
             promise: prom,
@@ -300,8 +254,6 @@ export class MaDeProcess {
             let firstElement = this.runtimeCmdStack[0];
             firstElement.stdout = stdout;
             firstElement.stderr = stdout;
-
-            console.log(`nextCmd: ${this.runtimeCmdStack[0].writeCmd}`);
         }
         else {
             this.lastLine = stdout;

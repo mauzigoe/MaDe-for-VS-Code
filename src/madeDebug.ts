@@ -21,6 +21,7 @@ import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
 import { MadeFrame} from './madeInfo';
 import * as path from 'path';
 import { window } from 'vscode';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler } from './outputHandler';
 
 /**
  * This interface describes the mock-debug specific launch attributes
@@ -99,7 +100,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			response.success = false;	
 		}
 
-		await this._madeprocess.initializeOnlyShell();
+		await this._madeprocess.inhibitGuiForDebugMode();
 		
 		this._madeprocess.dapEvent.on('stopOnBreakpoint',() => {
 			this.sendEvent(new StoppedEvent('breakpoint', MatlabDebugSession.threadID));
@@ -259,15 +260,45 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 		// get bp lines
 		const clientLines = args.lines || [];
-		await this._madeprocess.clearBreakpoints(args.source.path).then(
-			() => {},
-			() => {console.error(`${arguments.callee.name}: clearBreakpoints(${args.source.path}) failed`);}
-		);
+
+		let writeCmd;
+
+		let srcPath = args.source.path;
+		
+        if (!srcPath) {
+            writeCmd = `dbclear all\n`;
+        }
+        else {
+            writeCmd = `dbclear in ${srcPath}\n`;
+        }
+
+		await this._madeprocess
+			.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
+			.then(defaultOnResolveHandler,defaultOnRejectHandler)
+			.then(
+				() => {},
+				() => {console.error(`${arguments.callee.name}: clearBreakpoints(${args.source.path}) failed`);}
+			);
 
 		// set and verify breakpoint locations
+		let actualBreakpoints0 = clientLines.map(async cLine => {
 
-		let actualBreakpoints0 = clientLines.map(async l => {
-			const [ verified, line, id ] = await this._madeprocess.setBreakpoints(args.source.path ?? "",l);
+			// what if args.source.path undefined?	
+        	let writeCmd = `dbstop in ${args.source.path} at ${cLine}\n`;
+
+			const [ verified, line, id ]: [boolean, number, number] = await this
+				._madeprocess
+				.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler,writeCmd)
+				.then(defaultOnResolveHandler, defaultOnRejectHandler)
+   		        .then(
+             		(value)  => { 
+                		return [value, cLine, this._madeprocess.bpId++];
+              	  	}, 
+                	(reason) => {
+                	    return [false, cLine, this._madeprocess.bpId++];
+                	}
+            	);
+
 			const bp = new Breakpoint(verified, this.convertDebuggerLineToClient(line)) as DebugProtocol.Breakpoint;
 			bp.id = id;
 			return bp;
