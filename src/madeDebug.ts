@@ -13,13 +13,14 @@
 import {
 	Logger, logger,
 	LoggingDebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
+	InitializedEvent, TerminatedEvent, StoppedEvent,
 	Thread, StackFrame, Source, Breakpoint,
 } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { MaDeProcess, MatlabDebugProcessOptions } from './madeProcess';
 import { MadeFrame} from './madeInfo';
 import * as path from 'path';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, evaluateOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler } from './outputHandler';
 
 /**
  * This interface describes the mock-debug specific launch attributes
@@ -56,22 +57,32 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
 	 */
-	public constructor() {
+	public constructor(command?: string , licensePath?: string) {
 		super("made-debug.txt", true);
 
 		// this debugger uses zero-based lines and columns
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
 
-		let command = '/usr/bin/env';
-		let argList = ['matlab', '-nosplash', '-nodesktop', '-singleCompThread'];
+		let argsList: string[] = [];
+		if (!command){
+			command = '/usr/bin/env';
+			argsList.push('matlab');
+		}
+		argsList.push('-nosplash', '-nodesktop', '-singleCompThread');
+	
+		if (licensePath){
+			argsList.push('-c');
+			argsList.push(licensePath);
+		}
+		
 		let options : MatlabDebugProcessOptions = { 
 			runtimeOption: {
 				stdio: [ 'pipe', 'pipe', 'pipe']
 			},
 		};
 
-		this._madeprocess = new MaDeProcess(command, argList, options);
+		this._madeprocess = new MaDeProcess(command, argsList, options);
 
 	}
 	
@@ -82,7 +93,16 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	 */
 	protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): Promise<void> {
 
-		let ready = await this._madeprocess.runtimeReady.catch(() => {console.log("readiness not determinable"); return false;});
+		let ready = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
+
+		if (!ready) {
+			this.sendErrorResponse(response, {
+				id: 1200,
+				format: "Matlab could not be started. Check if path and/or license is specified correctly.",
+				showUser: true, 
+			});
+			return;
+		} 
 		// build and return the capabilities of this debug adapter:
 		response.body = response.body || {};
 
@@ -90,54 +110,8 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			response.success = false;	
 		}
 
-		await this._madeprocess.initializeOnlyShell();
-		
-		this._madeprocess.dapEvent.on('stopOnBreakpoint',() => {
-			this.sendEvent(new StoppedEvent('breakpoint', MatlabDebugSession.threadID));
-		});
+		await this._madeprocess.inhibitGuiForDebugMode();
 
-		this._madeprocess.dapEvent.on('stopOnDataBreakpoint', () => {
-			this.sendEvent(new StoppedEvent('data breakpoint'));
-		});
-
-		this._madeprocess.dapEvent.on('stopOnInstructionBreakpoint', () => {
-			this.sendEvent(new StoppedEvent('instruction breakpoint', MatlabDebugSession.threadID));
-		});
-
-		this._madeprocess.dapEvent.on('stopOnStep', () => {
-			this.sendEvent(new StoppedEvent('step', MatlabDebugSession.threadID));
-		});
-
-		this._madeprocess.dapEvent.on('breakpointValidated', (verified,id) => {
-			this.sendEvent(new BreakpointEvent('changed', { verified: verified, id: id}  as DebugProtocol.Breakpoint) );
-		});
-
-
-		this._madeprocess.dapEvent.on('output', (type: any, text: any, filePath: any, line: any, column: any) => {
-
-			let category: string;
-			switch(type) {
-				case 'prio': category = 'important'; break;
-				case 'out': category = 'stdout'; break;
-				case 'err': category = 'stderr'; break;
-				default: category = 'console'; break;
-			}
-			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`, category);
-
-			if (text === 'start' || text === 'startCollapsed' || text === 'end') {
-				e.body.group = text;
-				e.body.output = `group-${text}\n`;
-			}
-
-			e.body.source = this.createSource(filePath);
-			e.body.line = this.convertDebuggerLineToClient(line);
-			e.body.column = this.convertDebuggerColumnToClient(column);
-			this.sendEvent(e);
-		});
-		this._madeprocess.dapEvent.on('end', () => {
-			this.sendEvent(new TerminatedEvent());
-		});
-	
 		// the adapter implements the configurationDone request.
 		response.body.supportsConfigurationDoneRequest = true;
 
@@ -181,6 +155,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 		//response.body.supportSuspendDebuggee = false;
 		response.body.supportTerminateDebuggee = false;
+		response.body.supportsTerminateRequest = true;
 		//response.body.supportsFunctionBreakpoints = false;
 
 		this.sendResponse(response);
@@ -210,20 +185,15 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	protected async launchRequest(response: DebugProtocol.LaunchResponse, args: ILaunchRequestArguments) {
 
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
-		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
-
-		this._madeprocess.setSourceFile(args.program);
-
-		let ready = await this._madeprocess.runtimeReady;
+		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);	
+		
+		let ready = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
 
 		if (!ready) {
-			// simulate a compile/build error in "launch" request:
-			// the error should not result in a modal dialog since 'showUser' is set to false.
-			// A missing 'showUser' should result in a modal dialog.
 			this.sendErrorResponse(response, {
-				id: 1001,
-				format: `compile error: some fake error.`,
-				showUser: args.compileError === 'show' ? true : (args.compileError === 'hide' ? false : undefined)
+				id: 1200,
+				format: "Matlab could not be started. Check if path and/or license is specified correctly.",
+				showUser: true, 
 			});
 			return;
 		} 
@@ -232,7 +202,18 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		await cdProm;
 		await dbModeProm;
 
-		await this._madeprocess.continue(args.program);
+		await this._madeprocess.run(args.program);
+
+		let isInDebugMode = await this._madeprocess.isInDebugMode();
+		if (!isInDebugMode) {
+			this.sendErrorResponse(response,{
+				id: 1201,
+				format: "launchRequest failed. Matlab Terminal not in Debug Mode",
+				showUser: true
+			});
+			return;
+		}
+
 		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID);
 		this.sendEvent(stop);
 
@@ -245,19 +226,47 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 	protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
 		
-		// clear breakpoint
-
 		// get bp lines
 		const clientLines = args.lines || [];
-		await this._madeprocess.clearBreakpoints(args.source.path).then(
-			() => {},
-			() => {console.error(`${arguments.callee.name}: clearBreakpoints(${args.source.path}) failed`);}
-		);
+
+		let writeCmd;
+
+		let srcPath = args.source.path;
+		
+        if (!srcPath) {
+            writeCmd = `dbclear all\n`;
+        }
+        else {
+            writeCmd = `dbclear in ${srcPath}\n`;
+        }
+
+		await this._madeprocess
+			.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
+			.then(defaultOnResolveHandler,defaultOnRejectHandler)
+			.then(
+				() => {},
+				() => {console.error(`${arguments.callee.name}: clearBreakpoints(${args.source.path}) failed`);}
+			);
 
 		// set and verify breakpoint locations
+		let actualBreakpoints0 = clientLines.map(async cLine => {
 
-		let actualBreakpoints0 = clientLines.map(async l => {
-			const [ verified, line, id ] = await this._madeprocess.setBreakpoints(args.source.path ?? "",l);
+			// what if args.source.path undefined?	
+        	let writeCmd = `dbstop in ${args.source.path} at ${cLine}\n`;
+
+			const [ verified, line, id ]: [boolean, number, number] = await this
+				._madeprocess
+				.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler,writeCmd)
+				.then(defaultOnResolveHandler, defaultOnRejectHandler)
+   		        .then(
+             		(value)  => { 
+                		return [value, cLine, this._madeprocess.bpId++];
+              	  	}, 
+                	(reason) => {
+                	    return [false, cLine, this._madeprocess.bpId++];
+                	}
+            	);
+
 			const bp = new Breakpoint(verified, this.convertDebuggerLineToClient(line)) as DebugProtocol.Breakpoint;
 			bp.id = id;
 			return bp;
@@ -275,12 +284,22 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	}
 
 	protected async stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request | undefined): Promise<void> {
-		let test = ((await this._madeprocess.stack().then((value:any)=>{return value;})).map((value: MadeFrame, index: number) => {
+  
+		let writeCmd = "dbstack('-completenames')\n";
+
+		let madeFrames = (
+				await this._madeprocess
+				.enqueMatlabCmd(stackTraceStdOutHandler,defaultStdErrHandler,writeCmd)
+				.then(stackTraceOnResolveHandler,stackTraceOnRejectHandler)
+				.then((value:any)=>{return value;})
+			);
+
+		let stackFrames = madeFrames.map((value: MadeFrame, index: number) => {
 			// rn, only the file currently debugged can be resolved by in the stack trace
 			return new StackFrame(index,value.path, new Source(path.basename(value.path), value.path),value.line);
-		}));
+		});
 		response.body = {
-			stackFrames : test
+			stackFrames : stackFrames
 		};
 
 		
@@ -311,36 +330,90 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	
 	protected async continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): Promise<void> {
 
-		this._madeprocess.continue();//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
-
+		let isInDebugMode: boolean = await this._madeprocess.isInDebugMode();
+		
+		if (isInDebugMode) {
+			await this._madeprocess.dbcont();//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
+			isInDebugMode = await this._madeprocess.isInDebugMode();
+		}
+		
+		if (!isInDebugMode){
+			this.sendEvent(new TerminatedEvent(false));
+			return;
+		}
+		
 		this.sendEvent(new StoppedEvent('breakpoint',MatlabDebugSession.threadID));
 
 		this.sendResponse(response);
 	}
 
 	protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): Promise<void> {
-		await this._madeprocess.next();
-		this.sendEvent(new StoppedEvent('step',MatlabDebugSession.threadID));
-		this.sendResponse(response);
+
+		let writeCmd = "dbstep\n";
+
+        let successfulWriteCmd = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd)
+            .then(
+                (value: any) => {
+					this.sendEvent(new StoppedEvent('step', MatlabDebugSession.threadID));
+					return true;
+                },
+				(value: any) => {
+					return false;
+				}
+            );
+
+		if (successfulWriteCmd){
+			this.sendResponse(response);
+		}
+		else {
+			this.sendErrorResponse(response, {
+				id: 1400,
+				format: "nextRequest failed",
+				showUser: true,
+			});
+
+		}
 	}
 
-	/* Soon to come
-	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
-		//this._runtime.stepIn(args.targetId);
-		this.sendResponse(response);
-	}
+	protected terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request | undefined): void {
 
-	protected stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments): void {
-		//this._runtime.stepOut();
-		this.sendResponse(response);
+		let success = this._madeprocess._runtime.kill();
+
+		if (!success) {
+			this.sendErrorResponse(
+				response,
+				{
+					id: 1020,
+					format: `could not kill matlab terminal (PID: ${this._madeprocess._runtime.pid ?? "ERR"})`
+				}
+			);
+		}		
+		else {
+			this.sendResponse(response);
+		}
+
+		return;
+
 	}
-	*/
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
 
 		let isRejected: boolean = false; 
 
-		let result = await this._madeprocess.evaluate(args.expression).then((value) => {return value;}, (value) =>{ isRejected = true; return value; });
+        let writeCmd = `${args.expression}\n`;
+
+        let result = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, writeCmd)
+			.then(evaluateOnResolveHandler)
+			.then(
+				(value) => { 
+					return value;
+				},
+				(value) => {
+					isRejected = true; 
+					return value;
+				}
+			);
+
 
 		if (!isRejected) {
 			response.body = {
@@ -350,16 +423,14 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			this.sendResponse(response);
 		}
 		else {
-			this.sendErrorResponse(response,1001);
+			this.sendErrorResponse(response,{
+				id: 5000,
+				format: "evaluateRequest failed",
+				showUser: true
+			});
 			return ;
 		}
-	
 	}
-
-	private createSource(filePath: string): Source {
-		return new Source(path.basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mock-adapter-data');
-	}
-
 }
 
 		

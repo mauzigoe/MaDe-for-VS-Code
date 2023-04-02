@@ -5,7 +5,7 @@ import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken 
 import {matlabDebugType} from './madeInfo';
 import { MatlabDebugSession } from './madeDebug';
 
-export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
+export function activateMadeDebug(context: vscode.ExtensionContext) {
 		
 	context.subscriptions.push(
 		vscode.commands.registerCommand('extension.matlabDebug.runEditorContents', (resource: vscode.Uri) => {
@@ -40,12 +40,6 @@ export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vs
 				});
 			}
 		}),
-		vscode.commands.registerCommand('extension.matlabDebug.toggleFormatting', (variable) => {
-			const ds = vscode.debug.activeDebugSession;
-			if (ds) {
-				ds.customRequest('toggleFormatting');
-			}
-		})
 	);
 
     context.subscriptions.push(vscode.commands.registerCommand('extension.matlabDebug.getProgramName', config => {
@@ -56,21 +50,11 @@ export function activateMadeDebug(context: vscode.ExtensionContext, factory?: vs
 
 	const provider = new MadeConfigurationProvider();
 	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider(matlabDebugType, provider));
+
+	let factory = new InlineDebugAdapterFactory();
 	
-	if (!factory) {
-		factory = new InlineDebugAdapterFactory();
-	}
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory(matlabDebugType, factory));
 
-	// override VS Code's default implementation of the debug hover
-	// here we match only Mock "variables", that are words starting with an '$'
-	/*
-	context.subscriptions.push(vscode.languages.registerEvaluatableExpressionProvider(...) -> siehe activateMockDebug 
-	*/
-
-	// override VS Code's default implementation of the "inline values" feature"
-	// context.subscriptions.push(vscode.languages.registerInlineValuesProvider() -> siehe activateMockDebug 
-	
 }
 
 class MadeConfigurationProvider implements vscode.DebugConfigurationProvider {
@@ -103,7 +87,9 @@ class MadeConfigurationProvider implements vscode.DebugConfigurationProvider {
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
 
 	createDebugAdapterDescriptor(_session: vscode.DebugSession): ProviderResult<vscode.DebugAdapterDescriptor> {
-		return new vscode.DebugAdapterInlineImplementation(new MatlabDebugSession());
+		let matlabExecutablePath = vscode.workspace.getConfiguration().get<string>('matlabExecutablePath');
+		let licensePath = vscode.workspace.getConfiguration().get<string>('licensePath');
+		return new vscode.DebugAdapterInlineImplementation(new MatlabDebugSession(matlabExecutablePath, licensePath));
 	}
 }
 
