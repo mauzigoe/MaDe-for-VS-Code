@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
 import {matlabDebugType} from './madeInfo';
 import { MatlabDebugSession } from './madeDebug';
+import { stringify } from 'querystring';
 
 export function activateMadeDebug(context: vscode.ExtensionContext) {
 		
@@ -87,9 +88,9 @@ class MadeConfigurationProvider implements vscode.DebugConfigurationProvider {
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
 
 	createDebugAdapterDescriptor(_session: vscode.DebugSession): ProviderResult<vscode.DebugAdapterDescriptor> {
-		let matlabExecutablePath = vscode.workspace.getConfiguration().get('matlabExecutablePath');
-		let licensePath = vscode.workspace.getConfiguration().get('licensePath');
-		return new vscode.DebugAdapterInlineImplementation(new MatlabDebugSession(matlabExecutablePath,licensePath));
+		let matlabExecutablePath = vscode.workspace.getConfiguration().get<string>('matlabExecutablePath');
+		let licensePath = vscode.workspace.getConfiguration().get<string>('licensePath');
+		return new vscode.DebugAdapterInlineImplementation(new MatlabDebugSession(matlabExecutablePath, licensePath));
 	}
 }
 

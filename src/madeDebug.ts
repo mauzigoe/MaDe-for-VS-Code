@@ -64,14 +64,16 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
 
+		let argsList: string[] = [];
 		if (!command){
 			command = '/usr/bin/env';
+			argsList.push('matlab');
 		}
-		let argList = ['matlab', '-nosplash', '-nodesktop', '-singleCompThread'];
+		argsList.push('-nosplash', '-nodesktop', '-singleCompThread');
 	
 		if (licensePath){
-			argList.push('-c');
-			argList.push(licensePath);
+			argsList.push('-c');
+			argsList.push(licensePath);
 		}
 		
 		let options : MatlabDebugProcessOptions = { 
@@ -80,7 +82,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			},
 		};
 
-		this._madeprocess = new MaDeProcess(command, argList, options);
+		this._madeprocess = new MaDeProcess(command, argsList, options);
 
 	}
 	
