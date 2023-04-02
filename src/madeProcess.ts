@@ -3,8 +3,8 @@ import { EventEmitter} from 'stream';
 import { setTimeout } from 'timers/promises';
 import './madeInfo';
 import {PassThrough} from 'stream';
-import { ResolveType, RejectType, ContinueResult, DefaultResult, CdResult, StackResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
-import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, shellInDebugModeDefaultOnRejectHandler, shellInDebugModeDefaultOnResolveHandler, stackTraceOnRejectHandler, stackTraceOnResolveHandler, stackTraceStdOutHandler} from './outputHandler';
+import { ResolveType, RejectType, ContinueResult, DefaultResult, CdResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';
+import { defaultOnRejectHandler, defaultOnResolveHandler, defaultStdErrHandler, defaultStdOutHandler, shellInDebugModeDefaultOnRejectHandler, shellInDebugModeDefaultOnResolveHandler} from './outputHandler';
 import './madeInfo';
 import * as path from 'path';
 
@@ -31,15 +31,12 @@ export class MaDeProcess {
     _runtime: ChildProcess;
     bpId = 0;
     runtimeCmdStack: FuncStruct<any>[] = [];
-    runtimeReady: Promise<boolean>;
     _this = this;
 
     lastLine: string = "";
 
     debuggerStdoutPassthrough: PassThrough = new PassThrough;
     debuggerStderrPassthrough: PassThrough = new PassThrough;
-
-    dapEvent = new EventEmitter();
 
     constructor(command: string, argList: string[], options: MatlabDebugProcessOptions) {
 
@@ -51,8 +48,6 @@ export class MaDeProcess {
 
         this._runtime.stdout?.pipe(this.debuggerStdoutPassthrough);
         this._runtime.stderr?.pipe(this.debuggerStderrPassthrough);
-
-        this.runtimeReady = this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "").then(defaultOnResolveHandler,defaultOnRejectHandler);
 
         this.debuggerStdoutPassthrough.addListener("data", (data: string) => {
             let _this = this;
@@ -87,17 +82,30 @@ export class MaDeProcess {
         return this.enqueMatlabCmd(defaultStdOutHandler,defaultStdErrHandler,writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler);
     }
 
-    public async runOrDbcont(isInDebugMode: boolean, path?: string): Promise<ContinueResult> {
-       
-        let writeCmd;       
-        //if (regex.ShellMode.test(this._last_line.toString())){
-        if (!isInDebugMode){
-            if (path){
-                writeCmd = `run("${path}")\n`;
-            }
+
+
+    public async dbcont(){
+        let writeCmd = "dbcont\n";
+
+        let prom: Promise<ContinueResult>;
+        if (writeCmd){
+            prom = this.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, writeCmd).then(defaultOnResolveHandler,defaultOnRejectHandler); 
         }
         else {
-            writeCmd = "dbcont\n";
+            prom = Promise.reject(false);
+        }
+            //this works given that the sourrounding registered function in a block are awaited  
+
+        return prom;
+ 
+    }
+
+    public async run(path: string): Promise<ContinueResult> {
+
+        let writeCmd;       
+        //if (regex.ShellMode.test(this._last_line.toString())){
+        if (path){
+            writeCmd = `run("${path}")\n`;
         }
 
         let prom: Promise<ContinueResult>;
@@ -185,7 +193,7 @@ export class MaDeProcess {
             } else if (pipe === StdOutErr.stdErr) {
                 funcstruct.stderr += stream;
                 // send stderr too maybe?
-                funcstruct.stdEmmit.emit('dataerr');
+                funcstruct.errEmmit.emit('dataerr');
             }
             else {
                 console.error("Event occurred but could not be assigned");
@@ -197,12 +205,6 @@ export class MaDeProcess {
 
     }
 
-    public sendEvent(reason: string, ...args: any[]){
-		setTimeout(0).then(() => {
-            this.dapEvent.emit(reason, ...args);
-        });
-    }
-
     private throwError(reason: string): never{
         throw new Error(reason);
     }
@@ -212,7 +214,6 @@ export class MaDeProcess {
         console.log(`cleanElementOnStack`);
 
         let stdout = this.runtimeCmdStack[0].stdout.toString().replace(regexMatchBeforePromptWithoutGlobal,"");;
-        let stderr = this.runtimeCmdStack[0].stderr.toString().replace(regexMatchBeforePromptWithoutGlobal,"");;  
         
         this.runtimeCmdStack.shift();
         console.log(`new stack length: ${this.runtimeCmdStack.length}`);
@@ -221,7 +222,7 @@ export class MaDeProcess {
             
             let firstElement = this.runtimeCmdStack[0];
             firstElement.stdout = stdout;
-            firstElement.stderr = stdout;
+            firstElement.stderr = "";
         }
         else {
             this.lastLine = stdout;

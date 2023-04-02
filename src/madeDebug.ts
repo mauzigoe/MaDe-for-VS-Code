@@ -93,7 +93,17 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	 */
 	protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): Promise<void> {
 
-		let ready = await this._madeprocess.runtimeReady.catch(() => {console.log("readiness not determinable"); return false;});
+		let ready = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
+		console.log(`ready: ${ready}`);
+
+		if (!ready) {
+			this.sendErrorResponse(response, {
+				id: 1200,
+				format: "Matlab could not be started. Check if path and/or license is specified correctly.",
+				showUser: true, 
+			});
+			return;
+		} 
 		// build and return the capabilities of this debug adapter:
 		response.body = response.body || {};
 
@@ -102,53 +112,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		}
 
 		await this._madeprocess.inhibitGuiForDebugMode();
-		
-		this._madeprocess.dapEvent.on('stopOnBreakpoint',() => {
-			this.sendEvent(new StoppedEvent('breakpoint', MatlabDebugSession.threadID));
-		});
 
-		this._madeprocess.dapEvent.on('stopOnDataBreakpoint', () => {
-			this.sendEvent(new StoppedEvent('data breakpoint'));
-		});
-
-		this._madeprocess.dapEvent.on('stopOnInstructionBreakpoint', () => {
-			this.sendEvent(new StoppedEvent('instruction breakpoint', MatlabDebugSession.threadID));
-		});
-
-		this._madeprocess.dapEvent.on('stopOnStep', () => {
-			this.sendEvent(new StoppedEvent('step', MatlabDebugSession.threadID));
-		});
-
-		this._madeprocess.dapEvent.on('breakpointValidated', (verified,id) => {
-			this.sendEvent(new BreakpointEvent('changed', { verified: verified, id: id}  as DebugProtocol.Breakpoint) );
-		});
-
-
-		this._madeprocess.dapEvent.on('output', (type: any, text: any, filePath: any, line: any, column: any) => {
-
-			let category: string;
-			switch(type) {
-				case 'prio': category = 'important'; break;
-				case 'out': category = 'stdout'; break;
-				case 'err': category = 'stderr'; break;
-				default: category = 'console'; break;
-			}
-			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`, category);
-
-			if (text === 'start' || text === 'startCollapsed' || text === 'end') {
-				e.body.group = text;
-				e.body.output = `group-${text}\n`;
-			}
-
-			e.body.source = this.createSource(filePath);
-			e.body.line = this.convertDebuggerLineToClient(line);
-			e.body.column = this.convertDebuggerColumnToClient(column);
-			this.sendEvent(e);
-		});
-		this._madeprocess.dapEvent.on('end', () => {
-			this.sendEvent(new TerminatedEvent());
-		});
-	
 		// the adapter implements the configurationDone request.
 		response.body.supportsConfigurationDoneRequest = true;
 
@@ -222,18 +186,16 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	protected async launchRequest(response: DebugProtocol.LaunchResponse, args: ILaunchRequestArguments) {
 
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
-		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
-
-		let ready = await this._madeprocess.runtimeReady;
+		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);	
+		
+		let ready = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
+		console.log(`launchRequest ready: ${ready}`);
 
 		if (!ready) {
-			// simulate a compile/build error in "launch" request:
-			// the error should not result in a modal dialog since 'showUser' is set to false.
-			// A missing 'showUser' should result in a modal dialog.
 			this.sendErrorResponse(response, {
-				id: 1001,
-				format: `compile error: some fake error.`,
-				showUser: args.compileError === 'show' ? true : (args.compileError === 'hide' ? false : undefined)
+				id: 1200,
+				format: "Matlab could not be started. Check if path and/or license is specified correctly.",
+				showUser: true, 
 			});
 			return;
 		} 
@@ -242,10 +204,20 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		await cdProm;
 		await dbModeProm;
 
+		//console.log("launchRequest:");
+		//console.log(`isinDebugMode: ${isInDebugMode}`);
+		await this._madeprocess.run(args.program);
+
 		let isInDebugMode = await this._madeprocess.isInDebugMode();
-		console.log("launchRequest:");
-		console.log(`isinDebugMode: ${isInDebugMode}`);
-		await this._madeprocess.runOrDbcont(isInDebugMode, args.program);
+		if (!isInDebugMode) {
+			this.sendErrorResponse(response,{
+				id: 1201,
+				format: "launchRequest failed. Matlab Terminal not in Debug Mode",
+				showUser: true
+			});
+			return;
+		}
+
 		let stop  = new StoppedEvent('defaultStop',MatlabDebugSession.threadID);
 		this.sendEvent(stop);
 
@@ -367,10 +339,9 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		let isInDebugMode: boolean = await this._madeprocess.isInDebugMode();
 		
 		if (isInDebugMode) {
-			await this._madeprocess.runOrDbcont(isInDebugMode);//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
+			await this._madeprocess.dbcont();//.then((value: any) => { return value}, (reason: any) => this.onRejectHandler(reason,));
 			isInDebugMode = await this._madeprocess.isInDebugMode();
 		}
-
 		
 		if (!isInDebugMode){
 			// don't know what to do exactly atm
@@ -387,7 +358,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 			this.sendEvent(new TerminatedEvent(false));
 
-			return ;
+			return;
 
 		}
 		
