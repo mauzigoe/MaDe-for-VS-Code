@@ -94,7 +94,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 	protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): Promise<void> {
 
 		let ready = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
-		console.log(`ready: ${ready}`);
 
 		if (!ready) {
 			this.sendErrorResponse(response, {
@@ -189,7 +188,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);	
 		
 		let ready = await this._madeprocess.enqueMatlabCmd(defaultStdOutHandler, defaultStdErrHandler, "\n").then(defaultOnResolveHandler,defaultOnRejectHandler);
-		console.log(`launchRequest ready: ${ready}`);
 
 		if (!ready) {
 			this.sendErrorResponse(response, {
@@ -204,8 +202,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		await cdProm;
 		await dbModeProm;
 
-		//console.log("launchRequest:");
-		//console.log(`isinDebugMode: ${isInDebugMode}`);
 		await this._madeprocess.run(args.program);
 
 		let isInDebugMode = await this._madeprocess.isInDebugMode();
@@ -230,8 +226,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 
 	protected async setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
 		
-		// clear breakpoint
-
 		// get bp lines
 		const clientLines = args.lines || [];
 
@@ -344,22 +338,8 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		}
 		
 		if (!isInDebugMode){
-			// don't know what to do exactly atm
-			// possible:
-			// 	- use MadeProcess.prepareDebugMode
-			
-			/*
-			this.sendErrorResponse(response,{
-				id: 1003,
-				format: "Bug: Continue Request failed. Matlab Shell not in Debug Mode",
-				showUser: true,
-			});
-			*/
-
 			this.sendEvent(new TerminatedEvent(false));
-
 			return;
-
 		}
 		
 		this.sendEvent(new StoppedEvent('breakpoint',MatlabDebugSession.threadID));
@@ -378,7 +358,7 @@ export class MatlabDebugSession extends LoggingDebugSession {
 					return true;
                 },
 				(value: any) => {
-                	return false;
+					return false;
 				}
             );
 
@@ -386,21 +366,14 @@ export class MatlabDebugSession extends LoggingDebugSession {
 			this.sendResponse(response);
 		}
 		else {
-			// Error handling needed
+			this.sendErrorResponse(response, {
+				id: 1400,
+				format: "nextRequest failed",
+				showUser: true,
+			});
+
 		}
 	}
-
-	/* Soon to come
-	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
-		//this._runtime.stepIn(args.targetId);
-		this.sendResponse(response);
-	}
-
-	protected stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments): void {
-		//this._runtime.stepOut();
-		this.sendResponse(response);
-	}
-	*/
 
 	protected terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request | undefined): void {
 
@@ -451,13 +424,12 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		}
 		else {
 			this.sendErrorResponse(response,{
-				id: 1001,
-				format: result,
+				id: 5000,
+				format: "evaluateRequest failed",
 				showUser: true
 			});
 			return ;
 		}
-	
 	}
 }
 
