@@ -4,7 +4,6 @@ import * as vscode from 'vscode';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
 import {matlabDebugType} from './madeInfo';
 import { MatlabDebugSession } from './madeDebug';
-import { stringify } from 'querystring';
 
 export function activateMadeDebug(context: vscode.ExtensionContext) {
 		
