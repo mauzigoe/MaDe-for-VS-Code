@@ -13,7 +13,7 @@
 import {
 	Logger, logger,
 	LoggingDebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
+	InitializedEvent, TerminatedEvent, StoppedEvent,
 	Thread, StackFrame, Source, Breakpoint,
 } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
@@ -459,11 +459,6 @@ export class MatlabDebugSession extends LoggingDebugSession {
 		}
 	
 	}
-
-	private createSource(filePath: string): Source {
-		return new Source(path.basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mock-adapter-data');
-	}
-
 }
 
 		

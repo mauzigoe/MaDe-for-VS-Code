@@ -1,6 +1,5 @@
 import { ChildProcess, spawn, StdioPipe } from 'child_process';
 import { EventEmitter} from 'stream';
-import { setTimeout } from 'timers/promises';
 import './madeInfo';
 import {PassThrough} from 'stream';
 import { ResolveType, RejectType, ContinueResult, DefaultResult, CdResult, madeError, regexMatchBeforePromptWithoutGlobal } from './madeInfo';

@@ -1,4 +1,4 @@
-import {ResolveType, RejectType, regexPrompt, DefaultResult, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, EvaluateResult, regexCaptureBeforePrompt} from './madeInfo';
+import {regexPrompt, DefaultResolveType, DefaultRejectType, regexDbStack, MadeFrame, regexDebugMode, regexShellMode, EvaluateResult, regexCaptureBeforePrompt} from './madeInfo';
 import './madeInfo';
 
 export function stackTraceOnResolveHandler(stream: string): MadeFrame[] {
