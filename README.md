@@ -27,11 +27,13 @@ I provided an example under sample
     - run `npm install` in repo
     - run `vsce package` 
 - Install the `VSIX`-File via `Extensions`-Section in VS Code 
+- Under Extensions Settings you can specify the path for the `matlab` executable and license path
+    - both are optional
+    - if not specified `/usr/bin/env` is used and `matlab` is invoked without `-c` option
 - open the foler `sampleWorkspace` 
 - open the file `sampleWorkspace/test.m`
 - press `F5`-File
     - type in the relative path `sampleWorkspace/test.m`
-    - the extension executes `matlab` via `/usr/bin/env`, so the `matlab` executable path should be in your `PATH` Variable
 - After a few seconds the extension should be ready and a yellow pointer should indicate your position (at the beginning).
 - You can now run your program stepwise or set breakpoint (for more see [Features](#features))
 
